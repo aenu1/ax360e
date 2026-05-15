@@ -1,0 +1,94 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Ninja Multi-Config",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "vs",
+      "displayName": "Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "vs-arm64",
+      "displayName": "Visual Studio 2022 (ARM64)",
+      "generator": "Visual Studio 17 2022",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "architecture": "ARM64",
+      "toolset": "host=x64",
+      "binaryDir": "${sourceDir}/build/vs-arm64",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_PROCESSOR": "ARM64"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "configurePreset": "default",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "configurePreset": "default",
+      "configuration": "Release"
+    },
+    {
+      "name": "checked",
+      "displayName": "Checked",
+      "configurePreset": "default",
+      "configuration": "Checked"
+    },
+    {
+      "name": "vs-debug",
+      "configurePreset": "vs",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs-release",
+      "configurePreset": "vs",
+      "configuration": "Release"
+    },
+    {
+      "name": "vs-checked",
+      "configurePreset": "vs",
+      "configuration": "Checked"
+    },
+    {
+      "name": "vs-arm64-debug",
+      "configurePreset": "vs-arm64",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs-arm64-release",
+      "configurePreset": "vs-arm64",
+      "configuration": "Release"
+    },
+    {
+      "name": "vs-arm64-checked",
+      "configurePreset": "vs-arm64",
+      "configuration": "Checked"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+test_vrsqrtefp128_1:
+  # Reciprocal square root: 1/sqrt([1.0, 4.0, 9.0, 16.0]) ≈ [1.0, 0.5, 0.333, 0.25]
+  #_ REGISTER_IN v4 [3F800000, 40800000, 41100000, 41800000]
+  vrsqrtefp128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3F800000, 40800000, 41100000, 41800000]
+  #_ REGISTER_OUT v5 [3F7FF400, 3EFFF400, 3EAAA500, 3E7FF400]
+
+test_vrsqrtefp128_2:
+  # Reciprocal square root of larger values
+  #_ REGISTER_IN v4 [41C80000, 42480000, 42C80000, 43480000]
+  vrsqrtefp128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [41C80000, 42480000, 42C80000, 43480000]
+  #_ REGISTER_OUT v5 [3E4CCA00, 3E10CE00, 3DCCCA00, 3D90CE00]
+
+test_vrsqrtefp128_3:
+  # Reciprocal square root of fractions
+  #_ REGISTER_IN v4 [3F000000, 3E800000, 3E000000, 3D800000]
+  vrsqrtefp128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3F000000, 3E800000, 3E000000, 3D800000]
+  #_ REGISTER_OUT v5 [3FB4FD00, 3FFFF400, 4034FD00, 407FF400]
+
+test_vrsqrtefp128_4:
+  # Reciprocal square root of unity variations
+  #_ REGISTER_IN v4 [3F800000, 3F800000, 3F800000, 3F800000]
+  vrsqrtefp128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3F800000, 3F800000, 3F800000, 3F800000]
+  #_ REGISTER_OUT v5 [3F7FF400, 3F7FF400, 3F7FF400, 3F7FF400]
+
+test_vrsqrtefp128_5:
+  # Reciprocal square root of very small values
+  #_ REGISTER_IN v4 [3C23D70A, 3BA3D70A, 3B23D70A, 3AA3D70A]
+  vrsqrtefp128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3C23D70A, 3BA3D70A, 3B23D70A, 3AA3D70A]
+  #_ REGISTER_OUT v5 [412004FD, 41624CF5, 41A004FD, 41E24CF5]

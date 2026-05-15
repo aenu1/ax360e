@@ -19,4 +19,7 @@ namespace xe {
 
     void LaunchWebBrowser(const std::string_view url) {}
 
+    bool SetProcessPriorityClass(const uint32_t priority_class) { return true; }
+
+    bool IsUseNexusForGameBarEnabled() { return false; }
 }

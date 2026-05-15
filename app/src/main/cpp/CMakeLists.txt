@@ -36,12 +36,6 @@ target_link_options(emu PRIVATE -Wl,--exclude-libs,ALL)
 #target_compile_options(emu PRIVATE -flto)
 #target_link_options(emu PRIVATE -flto)
 
-if(CMAKE_BUILD_TYPE STREQUAL Debug)
-    #
-else ()
-set(CMAKE_BUILD_TYPE Release)
-endif()
-
 target_sources(emu
         PRIVATE
         aarch64_disasm.cpp
@@ -50,7 +44,6 @@ target_sources(emu
         emulator.cpp
         emulator_ax360e.cpp
         document_file.cpp
-        xe_a64_code_cache_posix.cpp
         xe_aaudio_audio_driver.cpp
         xe_aaudio_audio_system.cpp
         xe_android_hid.cpp
@@ -71,75 +64,28 @@ target_sources(emu
         xe_saf_xex_entry.cpp
         xe_saf_xex_file.cpp
         xe_system_ax360e.cpp
-        xenia/src/xenia/app/emulator_window.cc
+        xenia-canary/src/xenia/app/emulator_window.cc
+        xenia-canary/src/xenia/app/profile_dialogs.cc
+        xenia-canary/src/xenia/ui/file_picker_android.cc
+        xenia-canary/src/xenia/ui/surface_android.cc
         cpuinfo.cpp
         vkapi.cpp
         vkutil.cpp
 )
+#xe_a64_code_cache_posix.cpp
+#emulator.cpp
+#emulator_ax360e.cpp
 # python xenia-build premake --target_os=android --devenv=cmake
-#add_subdirectory(xenia/ab EXCLUDE_FROM_ALL)
-
-include(build/xenia-app-discord.cmake)
-include(build/xenia-apu.cmake)
-include(build/xenia-apu-nop.cmake)
-include(build/xenia-base.cmake)
-include(build/xenia-core.cmake)
-include(build/xenia-cpu.cmake)
-include(build/xenia-cpu-backend-a64.cmake)
-include(build/xenia-cpu-backend-x64.cmake)
-include(build/xenia-debug-ui.cmake)
-include(build/xenia-gpu.cmake)
-include(build/xenia-gpu-null.cmake)
-#include(build/xenia-gpu-shader-compiler.cmake)
-include(build/xenia-gpu-vulkan.cmake)
-include(build/xenia-hid.cmake)
-include(build/xenia-hid-nop.cmake)
-include(build/xenia-hid-skylander.cmake)
-include(build/xenia-kernel.cmake)
-include(build/xenia-patcher.cmake)
-include(build/xenia-ui.cmake)
-include(build/xenia-ui-vulkan.cmake)
-include(build/xenia-vfs.cmake)
-include(build/aes_128.cmake)
-include(build/capstone.cmake)
-#include(build/cxxopts.cmake)
-include(build/discord-rpc.cmake)
-include(build/dxbc.cmake)
-include(build/fmt.cmake)
-include(build/glslang-spirv.cmake)
-include(build/imgui.cmake)
-include(build/libavcodec.cmake)
-include(build/libavformat.cmake)
-include(build/libavutil.cmake)
-include(build/mspack.cmake)
-include(build/pugixml.cmake)
-include(build/snappy.cmake)
-#include(build/tomlplusplus.cmake)
-include(build/xxhash.cmake)
-include(build/zarchive.cmake)
-#include(build/zlib.cmake)
-include(build/zstd.cmake)
-
-# TODO -O2/-O3会导致XThread::Reenter抛出c++异常后无法正常展开
-# 找到更好的解决方案后优化这里
-#if(CMAKE_BUILD_TYPE STREQUAL Release)
-#target_compile_options(xenia-kernel PRIVATE
-#        $<$<COMPILE_LANGUAGE:CXX>:-O1>
-#)
-#target_compile_options(xenia-cpu PRIVATE
-#        $<$<COMPILE_LANGUAGE:CXX>:-O1>
-#)
-#target_compile_options(xenia-cpu-backend-a64 PRIVATE
-#        $<$<COMPILE_LANGUAGE:CXX>:-O1>
-#)
-#endif()
+# Generated CMake files are in xenia/build/
+add_subdirectory(xenia-canary EXCLUDE_FROM_ALL)
 
 add_subdirectory(libadrenotools EXCLUDE_FROM_ALL)
 
 target_include_directories(emu PRIVATE
-        xenia
-        xenia/src
-        xenia/third_party
+        xenia-canary
+        xenia-canary/src
+        xenia-canary/third_party
+        xenia-canary/..
 )
 
 target_link_libraries(emu
@@ -180,7 +126,6 @@ target_link_libraries(emu
         aaudio
         z
         pugixml
-        xenia-hid-skylander
         xenia-patcher
         adrenotools
 )

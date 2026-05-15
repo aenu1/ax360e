@@ -215,133 +215,174 @@ static void j_close_config_file(JNIEnv* env,jobject self,YAML::Node* config_node
     delete config_node;
 }
 #elif CFG_TYPE_TOML
-#include "cpptoml/include/cpptoml.h"
-static std::shared_ptr<cpptoml::table>* j_open_config_str(JNIEnv* env,jobject self,jstring jconfig_str) {
-    jboolean is_copy=false;
-    const char* config_str=env->GetStringUTFChars(jconfig_str,&is_copy);
-    std::istringstream config_stream(config_str);
-    cpptoml::parser p{config_stream};
-    auto toml=p.parse();
-    LOGE("open_config_str %d",toml.use_count());
-    env->ReleaseStringUTFChars(jconfig_str,config_str);
-    std::unique_ptr<std::shared_ptr<cpptoml::table>> toml_p=std::make_unique<std::shared_ptr<cpptoml::table>>(toml);
-    return toml_p.release();
-}
-static jstring j_close_config_str(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table){
-    std::unique_ptr<std::shared_ptr<cpptoml::table>> toml_p;
-    toml_p.reset(config_table);
-    std::ostringstream out_strm;
-    out_strm << *toml_p;
-    std::string out=out_strm.str();
-    jboolean is_copy=false;
-    jstring result=env->NewStringUTF(out.c_str());
-    return result;
-}
-static std::shared_ptr<cpptoml::table>* j_open_config_file(JNIEnv* env,jobject self,jstring config_path){
-    jboolean is_copy=false;
-    const char* path=env->GetStringUTFChars(config_path,&is_copy);
+#include "tomlplusplus/include/toml++/toml.hpp"
 
-    std::shared_ptr<cpptoml::table> toml=cpptoml::parse_file(path);
-    env->ReleaseStringUTFChars(config_path,path);
-    std::unique_ptr<std::shared_ptr<cpptoml::table>> toml_p=std::make_unique<std::shared_ptr<cpptoml::table>>(toml);
-    return toml_p.release();
+static toml::table* j_open_config_str(JNIEnv* env, jobject self, jstring jconfig_str) {
+    jboolean is_copy = false;
+    const char* config_str = env->GetStringUTFChars(jconfig_str, &is_copy);
+
+    try {
+        toml::table* config_table = new toml::table(toml::parse(config_str));
+        env->ReleaseStringUTFChars(jconfig_str, config_str);
+        return config_table;
+    } catch (const toml::parse_error& e) {
+        LOGE("open_config_str parse error: %s", e.what());
+        env->ReleaseStringUTFChars(jconfig_str, config_str);
+        return nullptr;
+    }
 }
-static jstring j_load_config_entry(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table,jstring tag){
-    jboolean is_copy=false;
-    const char* tag_cstr=env->GetStringUTFChars(tag,&is_copy);
-    std::string  tag_str(tag_cstr);
-    env->ReleaseStringUTFChars(tag,tag_cstr);
 
-    size_t pos=tag_str.find('|');
-    std::string  table_name=tag_str.substr(0,pos);
-    std::string  key_name=tag_str.substr(pos+1);
+static jstring j_close_config_str(JNIEnv* env, jobject self, toml::table* config_table) {
+    if (!config_table) {
+        return env->NewStringUTF("{}");
+    }
 
-    std::shared_ptr<cpptoml::table> table=(*config_table)->get_table(table_name);
-    if(!table){
+    std::ostringstream out;
+    out << *config_table;
+    delete config_table;
+
+    return env->NewStringUTF(out.str().c_str());
+}
+
+static toml::table* j_open_config_file(JNIEnv* env, jobject self, jstring config_path) {
+    jboolean is_copy = false;
+    const char* path = env->GetStringUTFChars(config_path, &is_copy);
+
+    try {
+        toml::table* config_table = new toml::table(toml::parse_file(path));
+        env->ReleaseStringUTFChars(config_path, path);
+        return config_table;
+    } catch (const toml::parse_error& e) {
+        LOGE("open_config_file parse error: %s", e.what());
+        env->ReleaseStringUTFChars(config_path, path);
+        return nullptr;
+    }
+}
+
+static jstring j_load_config_entry(JNIEnv* env, jobject self, toml::table* config_table, jstring tag) {
+    if (!config_table) {
         return NULL;
     }
-    if(const auto val=table->get_as<bool>(key_name);val){
-        std::string val_str=*val?"true":"false";
-        LOGE("load_config_entry Z %s %s",tag_str.c_str(),val_str.c_str());
-        jstring result=env->NewStringUTF(val_str.c_str());
-        return result;
+
+    jboolean is_copy = false;
+    const char* tag_cstr = env->GetStringUTFChars(tag, &is_copy);
+    std::string tag_str(tag_cstr);
+    env->ReleaseStringUTFChars(tag, tag_cstr);
+
+    size_t pos = tag_str.find('|');
+    std::string table_name = tag_str.substr(0, pos);
+    std::string key_name = tag_str.substr(pos + 1);
+
+    toml::node* table_node_ptr = config_table->get(table_name);
+    if (!table_node_ptr || !table_node_ptr->is_table()) {
+        return NULL;
     }
-    else if(const auto val=table->get_as<int>(key_name);val){
-        std::string val_str=std::to_string(*val);
-        LOGE("load_config_entry I %s %s",tag_str.c_str(),val_str.c_str());
-        jstring result=env->NewStringUTF(val_str.c_str());
-        return result;
+
+    toml::table* nested_table = table_node_ptr->as_table();
+    toml::node* value_node = nested_table->get(key_name);
+    if (!value_node) {
+        return NULL;
     }
-    else if(const auto val=table->get_as<double>(key_name);val){
-        std::string val_str=std::to_string(*val);
-        LOGE("load_config_entry F %s %s",tag_str.c_str(),val_str.c_str());
-        jstring result=env->NewStringUTF(val_str.c_str());
-        return result;
+
+    if (value_node->is_boolean()) {
+        bool val = *value_node->value<bool>();
+        std::string val_str = val ? "true" : "false";
+        LOGE("load_config_entry Z %s %s", tag_str.c_str(), val_str.c_str());
+        return env->NewStringUTF(val_str.c_str());
     }
-    else if(const auto val=table->get_as<std::string>(key_name);val){
-        LOGE("load_config_entry S %s %s",tag_str.c_str(),val->c_str());
-        jstring result=env->NewStringUTF(val->c_str());
-        return result;
+    else if (value_node->is_integer()) {
+        int64_t val = *value_node->value<int64_t>();
+        std::string val_str = std::to_string(val);
+        LOGE("load_config_entry I %s %s", tag_str.c_str(), val_str.c_str());
+        return env->NewStringUTF(val_str.c_str());
+    }
+    else if (value_node->is_floating_point()) {
+        double val = *value_node->value<double>();
+        std::string val_str = std::to_string(val);
+        LOGE("load_config_entry F %s %s", tag_str.c_str(), val_str.c_str());
+        return env->NewStringUTF(val_str.c_str());
+    }
+    else if (value_node->is_string()) {
+        std::string val = *value_node->value<std::string>();
+        LOGE("load_config_entry S %s %s", tag_str.c_str(), val.c_str());
+        return env->NewStringUTF(val.c_str());
     }
 
     return NULL;
 }
-static jobjectArray j_load_config_entry_ty_arr(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table,jstring tag){
+static jobjectArray j_load_config_entry_ty_arr(JNIEnv* env, jobject self, toml::table* config_table, jstring tag) {
     return NULL;
 }
-static void j_save_config_entry(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table,jstring tag,jstring val){
-    jboolean is_copy=false;
-    const char* tag_cstr=env->GetStringUTFChars(tag,&is_copy);
-    const char* val_cstr=env->GetStringUTFChars(val,&is_copy);
-    std::string  tag_str(tag_cstr);
-    std::string  val_str(val_cstr);
-    env->ReleaseStringUTFChars(tag,tag_cstr);
-    env->ReleaseStringUTFChars(val,val_cstr);
+static void j_save_config_entry(JNIEnv* env, jobject self, toml::table* config_table, jstring tag, jstring val) {
+    if (!config_table) {
+        return;
+    }
 
-    size_t pos=tag_str.find('|');
-    std::string  table_name=tag_str.substr(0,pos);
-    std::string  key_name=tag_str.substr(pos+1);
-    std::shared_ptr<cpptoml::table> table=(*config_table)->get_table(table_name);
+    jboolean is_copy = false;
+    const char* tag_cstr = env->GetStringUTFChars(tag, &is_copy);
+    const char* val_cstr = env->GetStringUTFChars(val, &is_copy);
+    std::string tag_str(tag_cstr);
+    std::string val_str(val_cstr);
+    env->ReleaseStringUTFChars(tag, tag_cstr);
+    env->ReleaseStringUTFChars(val, val_cstr);
 
-    auto is_float=[](std::string& s){
-        try{
-            std::stof(s);
-            return true;
+    size_t pos = tag_str.find('|');
+    std::string table_name = tag_str.substr(0, pos);
+    std::string key_name = tag_str.substr(pos + 1);
+
+    toml::node* table_node_ptr = config_table->get(table_name);
+    toml::table* table = nullptr;
+
+    if (table_node_ptr && table_node_ptr->is_table()) {
+        table = table_node_ptr->as_table();
+    } else {
+        auto result = config_table->emplace<toml::table>(table_name);
+        table = result.first->second.as_table();
+    }
+
+    if (val_str == "true" || val_str == "false") {
+        LOGE("save_config_entry Z %s %s", tag_str.c_str(), val_str.c_str());
+        table->insert_or_assign(key_name, val_str == "true");
+    }
+    else if (val_str.find('.') != std::string::npos) {
+        LOGE("save_config_entry F %s %s", tag_str.c_str(), val_str.c_str());
+        table->insert_or_assign(key_name, std::stod(val_str));
+    }
+    else if (const auto begin = val_str[0] != '-' ? val_str.begin() : ++val_str.begin();
+            std::all_of(begin, val_str.end(), ::isdigit)) {
+        LOGE("save_config_entry I %s %s", tag_str.c_str(), val_str.c_str());
+        try {
+            table->insert_or_assign(key_name, std::stoi(val_str));
+        } catch (...) {
+            table->insert_or_assign(key_name, val_str);
         }
-        catch(...){
-            return false;
-        }
-    };
-
-    if(val_str=="true"||val_str=="false"){
-        LOGE("save_config_entry Z %s %s",tag_str.c_str(),val_str.c_str());
-        table->insert(key_name,val_str=="true");
     }
-    else if(is_float(val_str)){
-        LOGE("save_config_entry F %s %s",tag_str.c_str(),val_str.c_str());
-        table->insert(key_name,std::stod(val_str));
-    }
-    else if(const auto begin=val_str[0]!='-'?val_str.begin():++val_str.begin();std::all_of(begin,val_str.end(),::isdigit)){
-        LOGE("save_config_entry I %s %s",tag_str.c_str(),val_str.c_str());
-        table->insert(key_name,std::stoi(val_str));
-    }
-    else{
-        LOGE("save_config_entry S %s %s",tag_str.c_str(),val_str.c_str());
-        table->insert(key_name,val_str);
+    else {
+        LOGE("save_config_entry S %s %s", tag_str.c_str(), val_str.c_str());
+        table->insert_or_assign(key_name, val_str);
     }
 }
-static void j_save_config_entry_ty_arr(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table,jstring tag,jobjectArray val) {
+static void j_save_config_entry_ty_arr(JNIEnv* env, jobject self, toml::table* config_table, jstring tag, jobjectArray val) {
 }
-static void j_close_config_file(JNIEnv* env,jobject self,std::shared_ptr<cpptoml::table>* config_table,jstring config_path){
-    jboolean is_copy=false;
-    const char* path=env->GetStringUTFChars(config_path,&is_copy);
+
+static void j_close_config_file(JNIEnv* env, jobject self, toml::table* config_table, jstring config_path) {
+    if (!config_table) {
+        return;
+    }
+
+    jboolean is_copy = false;
+    const char* path = env->GetStringUTFChars(config_path, &is_copy);
+
     std::ofstream fout(path);
-    fout << **config_table;
-    fout.close();
-    env->ReleaseStringUTFChars(config_path,path);
-    std::unique_ptr<std::shared_ptr<cpptoml::table>> toml_p;
-    toml_p.reset(config_table);
+    if (fout.is_open()) {
+        fout << *config_table;
+        fout.close();
+    }
+
+    env->ReleaseStringUTFChars(config_path, path);
+    delete config_table;
 }
+
 #else
 #error "CFG_TYPE_XXX not defined"
 #endif

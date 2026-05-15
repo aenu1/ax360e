@@ -33,7 +33,7 @@ public class Application extends android.app.Application{
         return new File(Application.get_app_data_dir(),sub_path);
     }
     public static File get_global_config_file(){
-        return new File(Application.get_app_data_dir(),"xenia.config.toml");
+        return new File(Application.get_app_data_dir(),"xenia-canary.config.toml");
     }
 
     public  static byte[] load_assets_file(Context ctx,String asset_file_path) {

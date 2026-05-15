@@ -1,0 +1,27 @@
+test_fcfidx_1:
+  #_ REGISTER_IN f1 0x0000000000000001
+  fcfid. f3, f1
+  blr
+  #_ REGISTER_OUT f3 1.0
+  #_ REGISTER_OUT f1 0x0000000000000001
+
+test_fcfidx_2:
+  #_ REGISTER_IN f1 0xFFFFFFFFFFFFFFFF
+  fcfid. f3, f1
+  blr
+  #_ REGISTER_OUT f3 -1.0
+  #_ REGISTER_OUT f1 0xFFFFFFFFFFFFFFFF
+
+test_fcfidx_3:
+  #_ REGISTER_IN f1 0x0000000000000064
+  fcfid. f3, f1
+  blr
+  #_ REGISTER_OUT f3 100.0
+  #_ REGISTER_OUT f1 0x0000000000000064
+
+test_fcfidx_4:
+  #_ REGISTER_IN f1 0x0000000000000000
+  fcfid. f3, f1
+  blr
+  #_ REGISTER_OUT f3 0.0
+  #_ REGISTER_OUT f1 0x0000000000000000

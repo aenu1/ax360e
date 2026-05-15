@@ -18,6 +18,9 @@ namespace xe {
 
             AAudioAudioSystem::~AAudioAudioSystem() = default;
 
+            std::string AAudioAudioSystem::name() const{
+                return "AAudio";
+            }
             X_STATUS AAudioAudioSystem::CreateDriver(size_t index,
                                                      xe::threading::Semaphore *semaphore,
                                                      AudioDriver **out_driver) {

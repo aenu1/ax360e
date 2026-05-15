@@ -1,0 +1,31 @@
+test_stfiwx_1:
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  #_ REGISTER_IN f3 0x3F800000
+  stfiwx f3, r4, r5
+  blr
+  #_ MEMORY_OUT 10001000 3F800000
+
+test_stfiwx_2:
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 4
+  #_ REGISTER_IN f3 0x12345678
+  stfiwx f3, r4, r5
+  blr
+  #_ MEMORY_OUT 10001004 12345678
+
+test_stfiwx_3:
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  #_ REGISTER_IN f3 0xFFFFFFFF
+  stfiwx f3, r4, r5
+  blr
+  #_ MEMORY_OUT 10001000 FFFFFFFF
+
+test_stfiwx_4:
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  #_ REGISTER_IN f3 0x00000000
+  stfiwx f3, r4, r5
+  blr
+  #_ MEMORY_OUT 10001000 00000000

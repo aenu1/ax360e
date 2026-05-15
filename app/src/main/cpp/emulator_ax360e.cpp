@@ -15,7 +15,7 @@
 #include "vkapi.h"
 #include "vkutil.h"
 
-#include "cpptoml/include/cpptoml.h"
+//#include "cpptoml/include/cpptoml.h"
 
 jclass g_class_DocumentFile;
 jclass g_class_Emulator;
@@ -426,7 +426,12 @@ static const std::pair<std::string,range> gen_seekbar[]={
 #define SEEKBAR_PREF_TAG "aenu.preference.SeekBarPreference"
 #define CHECKBOX_PREF_TAG "aenu.preference.CheckBoxPreference"
 #define LIST_PREF_TAG "aenu.preference.ListPreference"
+#if 1
 
+static jstring generate_config_xml(JNIEnv* env,jobject self,jstring toml_path){
+    return env->NewStringUTF("out.str().c_str()");
+}
+#else
 static jstring generate_config_xml(JNIEnv* env,jobject self,jstring toml_path){
 
     jboolean is_copy=false;
@@ -666,6 +671,7 @@ static jstring generate_config_xml(JNIEnv* env,jobject self,jstring toml_path){
 #endif
     return env->NewStringUTF(out.str().c_str());
 }
+#endif
 #undef SEEKBAR_PREF_TAG
 #undef CHECKBOX_PREF_TAG
 #undef LIST_PREF_TAG

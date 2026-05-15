@@ -1,0 +1,11 @@
+test_mtmsrd_1:
+  #_ REGISTER_IN r3 0x0000000000000000
+  mtmsrd r3
+  blr
+  #_ REGISTER_OUT r3 0x0000000000000000
+
+test_mtmsrd_2:
+  #_ REGISTER_IN r4 0x0000000000001234
+  mtmsrd r4
+  blr
+  #_ REGISTER_OUT r4 0x0000000000001234

@@ -75,7 +75,10 @@ DEFINE_path(
 
 DEFINE_bool(mount_scratch, false, "Enable scratch mount", "Storage");
 DEFINE_bool(mount_cache, false, "Enable cache mount", "Storage");
+DEFINE_bool(mount_memory_unit, false, "Enable memory unit (MU) mount",
+            "Storage");
 
+DECLARE_bool(force_mount_devkit);
 DEFINE_transient_path(target, "",
                       "Specifies the target .xex or .iso to execute.",
                       "General");
@@ -259,6 +262,12 @@ bool EmulatorApp::OnInitialize() {
 
     config::SetupConfig(storage_root);
 
+#if XE_ARCH_AMD64 == 1
+    xe::amd64::InitFeatureFlags();
+#elif XE_ARCH_ARM64 == 1
+    xe::arm64::InitFeatureFlags();
+#endif
+
     std::filesystem::path content_root = cvars::content_root;
     if (content_root.empty()) {
         content_root = storage_root / "content";
@@ -285,27 +294,27 @@ bool EmulatorApp::OnInitialize() {
         }
     }
     cache_root = std::filesystem::absolute(cache_root);
-    XELOGI("Host cache root: {}", cache_root.c_str());
+    XELOGI("Host cache root: {}", cache_root);
 
     // Create the emulator but don't initialize so we can setup the window.
     emu =
             std::make_unique<xe::Emulator>("", storage_root, content_root, cache_root);
 
     // Determine window size based on user setting.
-    //auto res = xe::gpu::GraphicsSystem::GetInternalDisplayResolution();
+    auto res = xe::gpu::GraphicsSystem::GetInternalDisplayResolution();
 
     // Main emulator display window.
-    emu_window = xe::app::EmulatorWindow::Create(emu.get(), app_context()
-    );
+    emu_window = xe::app::EmulatorWindow::Create(emu.get(), app_context(),
+                                                 ae::window_width,ae::window_height);
 
     if (!emu_window) {
         XELOGE("Failed to create the main emulator window");
         return false;
     }
 
+    emu_thr_quit_requested.store(false, std::memory_order_relaxed);
     emu_thr_event = xe::threading::Event::CreateAutoResetEvent(false);
     assert_not_null(emu_thr_event);
-    emu_thr_quit_requested.store(false, std::memory_order_relaxed);
     emu_thr = std::thread(&EmulatorApp::emu_thr_main, this);
 
     return true;
@@ -374,45 +383,44 @@ void EmulatorApp::emu_thr_main() {
     }
     app_context().CallInUIThread(
             [this]() { emu_window->SetupGraphicsSystemPresenterPainting(); });
+    const auto fs = emu->file_system();
 
     if (cvars::mount_scratch) {
         auto scratch_device = std::make_unique<xe::vfs::HostPathDevice>(
-                "\\SCRATCH", cvars::storage_root/"scratch", false);
+                "\\SCRATCH", emu->storage_root() / "scratch", false);
         if (!scratch_device->Initialize()) {
             XELOGE("Unable to scan scratch path");
         } else {
-            if (!emu->file_system()->RegisterDevice(
-                    std::move(scratch_device))) {
+            if (!fs->RegisterDevice(std::move(scratch_device))) {
                 XELOGE("Unable to register scratch path");
             } else {
-                emu->file_system()->RegisterSymbolicLink("scratch:", "\\SCRATCH");
+                fs->RegisterSymbolicLink("scratch:", "\\SCRATCH");
             }
         }
     }
 
     if (cvars::mount_cache) {
-
-        auto cache0_device =
-                std::make_unique<xe::vfs::HostPathDevice>("\\CACHE0", cvars::storage_root/"cache0", false);
+        auto cache0_device = std::make_unique<xe::vfs::HostPathDevice>(
+                "\\CACHE0", emu->storage_root() / "cache0", false);
         if (!cache0_device->Initialize()) {
             XELOGE("Unable to scan cache0 path");
         } else {
-            if (!emu->file_system()->RegisterDevice(std::move(cache0_device))) {
+            if (!fs->RegisterDevice(std::move(cache0_device))) {
                 XELOGE("Unable to register cache0 path");
             } else {
-                emu->file_system()->RegisterSymbolicLink("cache0:", "\\CACHE0");
+                fs->RegisterSymbolicLink("cache0:", "\\CACHE0");
             }
         }
 
-        auto cache1_device =
-                std::make_unique<xe::vfs::HostPathDevice>("\\CACHE1", cvars::storage_root/"cache1", false);
+        auto cache1_device = std::make_unique<xe::vfs::HostPathDevice>(
+                "\\CACHE1", emu->storage_root() / "cache1", false);
         if (!cache1_device->Initialize()) {
             XELOGE("Unable to scan cache1 path");
         } else {
-            if (!emu->file_system()->RegisterDevice(std::move(cache1_device))) {
+            if (!fs->RegisterDevice(std::move(cache1_device))) {
                 XELOGE("Unable to register cache1 path");
             } else {
-                emu->file_system()->RegisterSymbolicLink("cache1:", "\\CACHE1");
+                fs->RegisterSymbolicLink("cache1:", "\\CACHE1");
             }
         }
 
@@ -420,19 +428,69 @@ void EmulatorApp::emu_thr_main() {
         // NOTE: this must be registered _after_ the cache0/cache1 devices, due to
         // substring/start_with logic inside VirtualFileSystem::ResolvePath, else
         // accesses to those devices will go here instead
-        auto cache_device =
-                std::make_unique<xe::vfs::HostPathDevice>("\\CACHE", cvars::storage_root/"cache", false);
+        auto cache_device = std::make_unique<xe::vfs::HostPathDevice>(
+                "\\CACHE", emu->storage_root() / "cache", false);
         if (!cache_device->Initialize()) {
             XELOGE("Unable to scan cache path");
         } else {
-            if (!emu->file_system()->RegisterDevice(std::move(cache_device))) {
+            if (!fs->RegisterDevice(std::move(cache_device))) {
                 XELOGE("Unable to register cache path");
             } else {
-                emu->file_system()->RegisterSymbolicLink("cache:", "\\CACHE");
+                fs->RegisterSymbolicLink("cache:", "\\CACHE");
             }
         }
     }
-#if 0
+
+    if (cvars::force_mount_devkit) {
+        auto devkit_device =
+                std::make_unique<xe::vfs::HostPathDevice>("\\DEVKIT", "devkit", false);
+
+        if (!devkit_device->Initialize()) {
+            XELOGE("Unable to scan devkit path");
+        }
+
+        if (!fs->RegisterDevice(std::move(devkit_device))) {
+            XELOGE("Unable to register devkit path");
+        }
+
+        fs->RegisterSymbolicLink("DEVKIT:", "\\DEVKIT");
+        fs->RegisterSymbolicLink("e:", "\\DEVKIT");
+    }
+
+    if (cvars::mount_memory_unit) {
+        auto mu_device =
+                std::make_unique<xe::vfs::HostPathDevice>("\\MU", "MU", false);
+
+        if (!mu_device->Initialize()) {
+            XELOGE("Unable to scan MU path");
+        }
+
+        if (!fs->RegisterDevice(std::move(mu_device))) {
+            XELOGE("Unable to register MU path");
+        }
+
+        fs->RegisterSymbolicLink("MU:", "\\MU");
+    }
+
+// Set a debug handler.
+// This will respond to debugging requests so we can open the debug UI.
+    /*if (cvars::debug) {
+        emulator_->processor()->set_debug_listener_request_handler(
+                [this](xe::cpu::Processor* processor) {
+                    if (debug_window_) {
+                        return debug_window_.get();
+                    }
+                    app_context().CallInUIThreadSynchronous([this]() {
+                        debug_window_ = xe::debug::ui::DebugWindow::Create(emulator_.get(),
+                                                                           app_context());
+                        debug_window_->window()->AddListener(
+                                &debug_window_closed_listener_);
+                    });
+                    // If failed to enqueue the UI thread call, this will just be null.
+                    return debug_window_.get();
+                });
+    }*/
+#if 1
     emu->on_launch.AddListener([&](auto title_id, const auto& game_title) {
         XELOGI("on_launch {}",
                game_title.empty() ? "Unknown Title" : std::string(game_title));
@@ -470,9 +528,9 @@ void EmulatorApp::emu_thr_main() {
 
             });
 
-    /*emu->on_patch_apply.AddListener([this]() {
+    emu->on_patch_apply.AddListener([this]() {
         app_context().CallInUIThread([this]() { emu_window->UpdateTitle(); });
-    });*/
+    });
 
     emu->on_terminate.AddListener([]() {
         XELOGI("Emulator terminated");
@@ -498,6 +556,8 @@ void EmulatorApp::emu_thr_main() {
                 DocumentFile::find(g_jvm,uri);
 
         std::string name = file->getName();
+
+
         if(name.ends_with(".xex")){
             result = app_context().CallInUIThread(
                     [this, &file]() { return emu->LaunchXexFile(std::move(file)); });
@@ -531,7 +591,7 @@ void EmulatorApp::emu_thr_main() {
         }
     }
 
-    /*auto xam = emu->kernel_state()->GetKernelModule<kernel::xam::XamModule>(
+    auto xam = emu->kernel_state()->GetKernelModule<xe::kernel::xam::XamModule>(
             "xam.xex");
 
     if (xam) {
@@ -543,7 +603,7 @@ void EmulatorApp::emu_thr_main() {
                 return emu_window->RunTitle(host_path);
             });
         }
-    }*/
+    }
 
     // Now, we're going to use this thread to drive events related to emulation.
     /*while (!emu_thr_quit_requested.load(std::memory_order_relaxed)) {
@@ -552,14 +612,7 @@ void EmulatorApp::emu_thr_main() {
     }*/
     while (!emu_thr_quit_requested.load(std::memory_order_relaxed)) {
         xe::threading::Wait(emu_thr_event.get(), false);
-        while (true) {
-            emu->WaitUntilExit();
-            if (emu->TitleRequested()) {
-                emu->LaunchNextTitle();
-            } else {
-                break;
-            }
-        }
+        emu->WaitUntilExit();
     }
 
     XELOGI("QUIT");

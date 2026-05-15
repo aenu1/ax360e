@@ -1,0 +1,11 @@
+test_mfmsr_1:
+  #_ REGISTER_IN r3 0x0000000000000000
+  mfmsr r3
+  blr
+  #_ REGISTER_OUT r3 0x0000000000009030
+
+test_mfmsr_2:
+  #_ REGISTER_IN r4 0xFFFFFFFFFFFFFFFF
+  mfmsr r4
+  blr
+  #_ REGISTER_OUT r4 0x0000000000009030

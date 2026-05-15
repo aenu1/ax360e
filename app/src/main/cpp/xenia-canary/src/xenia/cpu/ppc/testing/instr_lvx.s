@@ -1,0 +1,116 @@
+test_lvx_1:
+  #_ MEMORY_IN 0x0000000010001000 [01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F, 10]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 0
+  #_ REGISTER_OUT v3 [00010200, 03000400, 05000600, 07000800]
+
+test_lvx_2:
+  # Test with base+offset addressing
+  #_ MEMORY_IN 0x0000000010001000 [00, 00, 00, 00, 00, 00, 00, 00, AA, BB, CC, DD, EE, FF, 11, 22]
+  #_ MEMORY_IN 0x0000000010001010 [33, 44, 55, 66, 77, 88, 99, 00, 11, 22, 33, 44, 55, 66, 77, 88]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 16
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 16
+  #_ REGISTER_OUT v3 [00034400, 55006600, 77008800, 99000000]
+
+test_lvx_3:
+  # Test unaligned address (should mask to 16-byte boundary)
+  #_ MEMORY_IN 0x0000000010001000 [11, 22, 33, 44, 55, 66, 77, 88, 99, AA, BB, CC, DD, EE, FF, 00]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 5  # unaligned offset
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 5
+  # Should load from aligned address 0x10001000 (masks low 4 bits)
+  #_ REGISTER_OUT v3 [00012200, 33004400, 55006600, 77008800]
+
+test_lvx_4:
+  # Test with zero base register
+  #_ MEMORY_IN 0x0000000010001000 [FF, EE, DD, CC, BB, AA, 99, 88, 77, 66, 55, 44, 33, 22, 11, 00]
+  #_ REGISTER_IN r4 0
+  lis r5, 0x1000
+  addi r5, r5, 0x1000
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0
+  #_ REGISTER_OUT r5 0x10001000
+  #_ REGISTER_OUT v3 [000FEE00, DD00CC00, BB00AA00, 99008800]
+
+test_lvx_5:
+  # Test loading all zeros
+  #_ MEMORY_IN 0x0000000010001000 [00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 0
+  #_ REGISTER_OUT v3 [00000000, 00000000, 00000000, 00000000]
+
+test_lvx_6:
+  # Test loading all ones
+  #_ MEMORY_IN 0x0000000010001000 [FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF, FF]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 0
+  #_ REGISTER_OUT v3 [000FFF00, FF00FF00, FF00FF00, FF00FF00]
+
+test_lvx_7:
+  # Test loading pattern data
+  #_ MEMORY_IN 0x0000000010001000 [01, 23, 45, 67, 89, AB, CD, EF, FE, DC, BA, 98, 76, 54, 32, 10]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 0
+  #_ REGISTER_OUT v3 [00012300, 45006700, 8900AB00, CD00EF00]
+
+test_lvx_8:
+  # Test multiple loads to different registers
+  #_ MEMORY_IN 0x0000000010001000 [11, 11, 11, 11, 22, 22, 22, 22, 33, 33, 33, 33, 44, 44, 44, 44]
+  #_ MEMORY_IN 0x0000000010001010 [55, 55, 55, 55, 66, 66, 66, 66, 77, 77, 77, 77, 88, 88, 88, 88]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  li r5, 16
+  lvx v4, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 16
+  #_ REGISTER_OUT v3 [00011100, 11001100, 22002200, 22002200]
+  #_ REGISTER_OUT v4 [00055500, 55005500, 66006600, 66006600]
+
+test_lvx_9:
+  # Test unaligned address with larger offset (should mask to 16-byte boundary)
+  #_ MEMORY_IN 0x0000000010001000 [00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00]
+  #_ MEMORY_IN 0x0000000010001010 [AA, BB, CC, DD, EE, FF, 11, 22, 33, 44, 55, 66, 77, 88, 99, 00]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 23  # unaligned: should load from 0x10001010 (aligned)
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 23
+  #_ REGISTER_OUT v3 [000ABB00, CC00DD00, EE00FF00, 11002200]
+
+test_lvx_10:
+  # Test with high address
+  #_ MEMORY_IN 0x0000000010001000 [DE, AD, BE, EF, CA, FE, BA, BE, 12, 34, 56, 78, 9A, BC, DE, F0]
+  #_ REGISTER_IN r4 0x0000000010001000
+  li r5, 0
+  lvx v3, r4, r5
+  blr
+  #_ REGISTER_OUT r4 0x0000000010001000
+  #_ REGISTER_OUT r5 0
+  #_ REGISTER_OUT v3 [000EAD00, BE00EF00, CA00FE00, BA00BE00]

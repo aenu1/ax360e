@@ -22,6 +22,7 @@ namespace xe {
 
                 ~AAudioAudioSystem() override;
 
+                std::string name() const override;
                 static bool IsAvailable() { return true; }
 
                 static std::unique_ptr<AudioSystem> Create(cpu::Processor *processor);

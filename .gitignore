@@ -8,7 +8,7 @@
 .externalNativeBuild
 .cxx
 local.properties
-*.py
+sv.py
 
 app/src/main/lib/
 app/src/main/libs/
@@ -20,3 +20,139 @@ app/release/
 app/.cxx/
 app/src/main/cpp/bin/
 app/build.gradle
+
+# ==============================================================================
+# Misc system junk
+# ==============================================================================
+
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.com.apple.*
+Thumbs.db
+Desktop.ini
+.svn
+
+# Microprofile settings
+.microprofilepreset.*
+
+# ==============================================================================
+# Projects/IDE files
+# ==============================================================================
+
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# VIM
+.*.sw[a-z]
+*.un~
+Session.vim
+
+# TextMate
+*.tmproj
+*.tmproject
+tmtags
+
+# Eclipse
+.project
+.metadata
+
+# WebStorm
+.idea
+
+# VS
+.vs
+*.user
+*.sdf
+*.opensdf
+*.suo
+bin/
+obj/
+
+# VSCode
+.vscode
+
+# ==============================================================================
+# Temp generated code
+# ==============================================================================
+
+*.py[co]
+.coverage
+*.o
+*.aps
+
+# Generated shader bytecode
+app/src/main/cpp/xenia-canary/src/xenia/gpu/shaders/bytecode/d3d12_5_1/
+app/src/main/cpp/xenia-canary/src/xenia/gpu/shaders/bytecode/vulkan_spirv/
+app/src/main/cpp/xenia-canary/src/xenia/ui/shaders/bytecode/d3d12_5_1/
+app/src/main/cpp/xenia-canary/src/xenia/ui/shaders/bytecode/vulkan_spirv/
+
+# ==============================================================================
+# Logs and dumps
+# ==============================================================================
+
+npm-debug.log
+private/
+*.trace
+imgui.ini
+*.log
+
+# ==============================================================================
+# Build system output
+# ==============================================================================
+
+# npm/node
+.lock-wscript
+node_modules/
+node_modules/**/build/
+node_modules/.bin/
+
+# coverage/etc
+/scratch/
+
+/build/
+/build-arm64/
+/build-x64/
+
+# ==============================================================================
+# Local-only paths
+# ==============================================================================
+
+.vagrant
+app/src/main/cpp/xenia-canary/attic/
+app/src/main/cpp/xenia-canary/content/
+app/src/main/cpp/xenia-canary/third_party/binutils/binutils-2.24.tar.gz
+app/src/main/cpp/xenia-canary/third_party/binutils/binutils-2.24/
+app/src/main/cpp/xenia-canary/third_party/binutils/bin/
+app/src/main/cpp/xenia-canary/third_party/binutils/powerpc-none-elf/
+app/src/main/cpp/xenia-canary/third_party/binutils/share/
+app/src/main/cpp/xenia-canary/third_party/vasm/
+app/src/main/cpp/xenia-canary/tools/shader-playground/*.dll
+app/src/main/cpp/xenia-canary/profile_print_times.py
+app/src/main/cpp/xenia-canary/profile_times.txt
+app/src/main/cpp/xenia-canary/cache
+app/src/main/cpp/xenia-canary/cache1
+app/src/main/cpp/xenia-canary/cache0
+app/src/main/cpp/xenia-canary/devkit
+app/src/main/cpp/xenia-canary/recent.toml
+
+
+*.tlog
+/app/src/main/cpp/xenia-canary/third_party/snappy/CMakeFiles/
+/app/src/main/cpp/xenia-canary/third_party/snappy/cmake/
+/app/src/main/cpp/xenia-canary/third_party/snappy/ALL_BUILD.vcxproj
+/app/src/main/cpp/xenia-canary/third_party/snappy/ALL_BUILD.vcxproj.filters
+/app/src/main/cpp/xenia-canary/third_party/snappy/cmake_install.cmake
+/app/src/main/cpp/xenia-canary/third_party/snappy/CMakeCache.txt
+/app/src/main/cpp/xenia-canary/third_party/snappy/INSTALL.vcxproj
+/app/src/main/cpp/xenia-canary/third_party/snappy/INSTALL.vcxproj.filters
+/app/src/main/cpp/xenia-canary/third_party/snappy/Snappy.sln
+/app/src/main/cpp/xenia-canary/third_party/snappy/snappy.vcxproj
+/app/src/main/cpp/xenia-canary/third_party/snappy/snappy.vcxproj.filters
+/app/src/main/cpp/xenia-canary/third_party/snappy/snappy-stubs-public.h
+/app/src/main/cpp/xenia-canary/third_party/snappy/ZERO_CHECK.vcxproj
+/app/src/main/cpp/xenia-canary/third_party/snappy/ZERO_CHECK.vcxproj.filters

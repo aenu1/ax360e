@@ -1,3 +1,0 @@
-xcodebuildresources
-
-*Missing documentation*

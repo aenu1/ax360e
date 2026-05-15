@@ -21,10 +21,10 @@
 namespace xe {
     namespace vfs {
 
-        const fourcc_t kZarMagic = make_fourcc((_ZARCHIVE::Footer::kMagic >> 24 & 0xFF),
+        /*const fourcc_t kZarMagic = make_fourcc((_ZARCHIVE::Footer::kMagic >> 24 & 0xFF),
                                                (_ZARCHIVE::Footer::kMagic >> 16 & 0xFF),
                                                (_ZARCHIVE::Footer::kMagic >> 8 & 0xFF),
-                                               (_ZARCHIVE::Footer::kMagic & 0xFF));
+                                               (_ZARCHIVE::Footer::kMagic & 0xFF));*/
 
         class SAF_DiscZarchiveEntry;
 

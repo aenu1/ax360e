@@ -1,0 +1,24 @@
+test_vmsum4fp128_1:
+  #_ REGISTER_IN v3 [3f800000, 3fc00000, 3f8ccccd, 3ff33333]
+  #_ REGISTER_IN v4 [40000000, 40700000, 4013d70a, 40b051eb]
+  vmsum4fp128 v5, v3, v4
+  blr
+  #_ REGISTER_OUT v3 [3f800000, 3fc00000, 3f8ccccd, 3ff33333]
+  #_ REGISTER_OUT v4 [40000000, 40700000, 4013d70a, 40b051eb]
+  #_ REGISTER_OUT v5 [41A5147B, 41A5147B, 41A5147B, 41A5147B]
+
+test_vmsum4fp128_2:
+  # Denormal output flushed to +0.0: FLT_MIN * 0.5 + 0 + 0 + 0 = denormal -> +0.0
+  #_ REGISTER_IN v3 [00800000, 00000000, 00000000, 00000000]
+  #_ REGISTER_IN v4 [3F000000, 00000000, 00000000, 00000000]
+  vmsum4fp128 v5, v3, v4
+  blr
+  #_ REGISTER_OUT v5 [00000000, 00000000, 00000000, 00000000]
+
+test_vmsum4fp128_3:
+  # Negative denormal output flushed to -0.0: -FLT_MIN * 0.5 + 0 + 0 + 0 = neg denormal -> -0.0
+  #_ REGISTER_IN v3 [80800000, 00000000, 00000000, 00000000]
+  #_ REGISTER_IN v4 [3F000000, 00000000, 00000000, 00000000]
+  vmsum4fp128 v5, v3, v4
+  blr
+  #_ REGISTER_OUT v5 [80000000, 80000000, 80000000, 80000000]

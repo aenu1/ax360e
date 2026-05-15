@@ -1,0 +1,23 @@
+variables:
+    GIT_STRATEGY: clone
+
+stages:
+    - test
+
+before_script:
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+
+ClangFormatCheck:
+  stage: test
+  image: ci:v5
+  script:
+  - ./.github/automation/clang-format.sh
+
+job_1:
+  stage: test
+  image: ci:v5
+  script:
+    - make
+    - cd test
+    - ./test_all.sh -g

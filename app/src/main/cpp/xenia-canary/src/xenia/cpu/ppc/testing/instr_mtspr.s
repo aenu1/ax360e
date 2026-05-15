@@ -1,0 +1,25 @@
+test_mtspr_xer:
+  #_ REGISTER_IN r3 0x0000000020000000
+  mtspr xer, r3
+  mfspr r4, xer
+  blr
+  #_ REGISTER_OUT r3 0x0000000020000000
+  #_ REGISTER_OUT r4 0x0000000020000000
+
+test_mtspr_lr:
+  #_ REGISTER_IN r3 0x0000000012345678
+  mflr r5
+  mtspr lr, r3
+  mflr r4
+  mtlr r5
+  blr
+  #_ REGISTER_OUT r3 0x0000000012345678
+  #_ REGISTER_OUT r4 0x0000000012345678
+
+test_mtspr_ctr:
+  #_ REGISTER_IN r3 0x00000000ABCDEF01
+  mtspr ctr, r3
+  mfctr r4
+  blr
+  #_ REGISTER_OUT r3 0x00000000ABCDEF01
+  #_ REGISTER_OUT r4 0x00000000ABCDEF01

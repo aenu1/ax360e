@@ -1,0 +1,53 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Microsoft C++ Code Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - '*.md'
+      - LICENSE
+  schedule:
+    - cron: '24 13 * * 4'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: Analyze
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: amd64
+
+      - name: Configure CMake
+        working-directory: ${{ github.workspace }}
+        run: cmake -B out
+
+      - name: Initialize MSVC Code Analysis
+        uses: microsoft/msvc-code-analysis-action@24c285ab36952c9e9182f4b78dfafbac38a7e5ee # v0.1.1
+        id: run-analysis
+        with:
+          cmakeBuildDirectory: ./out
+          buildConfiguration: Debug
+          ruleset: NativeRecommendedRules.ruleset
+
+      # Upload SARIF file to GitHub Code Scanning Alerts
+      - name: Upload SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v3.29.5
+        with:
+          sarif_file: ${{ steps.run-analysis.outputs.sarif }}

@@ -1,0 +1,105 @@
+[submodule "third_party/xbyak"]
+	path = third_party/xbyak
+	url = https://github.com/herumi/xbyak.git
+[submodule "third_party/imgui"]
+	path = third_party/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "third_party/catch"]
+	path = third_party/catch
+	url = https://github.com/catchorg/Catch2.git
+[submodule "third_party/snappy"]
+	path = third_party/snappy
+	url = https://github.com/google/snappy.git
+	ignore = dirty
+[submodule "third_party/discord-rpc"]
+	path = third_party/discord-rpc
+	url = https://github.com/discordapp/discord-rpc.git
+[submodule "third_party/rapidjson"]
+	path = third_party/rapidjson
+	url = https://github.com/Tencent/rapidjson.git
+[submodule "third_party/aes_128"]
+	path = third_party/aes_128
+	url = https://github.com/openluopworld/aes_128.git
+[submodule "third_party/capstone"]
+	path = third_party/capstone
+	url = https://github.com/capstone-engine/capstone.git
+[submodule "third_party/tomlplusplus"]
+	path = third_party/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git
+[submodule "third_party/cxxopts"]
+	path = third_party/cxxopts
+	url = https://github.com/jarro2783/cxxopts.git
+[submodule "third_party/SDL2"]
+	path = third_party/SDL2
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "third_party/utfcpp"]
+	path = third_party/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git
+[submodule "third_party/fmt"]
+	path = third_party/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "third_party/disruptorplus"]
+	path = third_party/disruptorplus
+	url = https://github.com/xenia-canary/disruptorplus.git
+[submodule "third_party/DirectXShaderCompiler"]
+	path = third_party/DirectXShaderCompiler
+	url = https://github.com/microsoft/DirectXShaderCompiler.git
+[submodule "third_party/date"]
+	path = third_party/date
+	url = https://github.com/HowardHinnant/date.git
+[submodule "third_party/xxhash"]
+	path = third_party/xxhash
+	url = https://github.com/Cyan4973/xxHash.git
+[submodule "third_party/FFmpeg"]
+	path = third_party/FFmpeg
+	url = https://github.com/has207/FFmpeg.git
+	branch = xmaframes
+[submodule "third_party/FidelityFX-CAS"]
+	path = third_party/FidelityFX-CAS
+	url = https://github.com/GPUOpen-Effects/FidelityFX-CAS.git
+[submodule "third_party/FidelityFX-FSR"]
+	path = third_party/FidelityFX-FSR
+	url = https://github.com/GPUOpen-Effects/FidelityFX-FSR.git
+[submodule "third_party/Vulkan-Headers"]
+	path = third_party/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "third_party/glslang"]
+	path = third_party/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "third_party/SPIRV-Tools"]
+	path = third_party/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "third_party/VulkanMemoryAllocator"]
+	path = third_party/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "third_party/zstd"]
+	path = third_party/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "third_party/zarchive"]
+	path = third_party/zarchive
+	url = https://github.com/exzap/ZArchive.git
+[submodule "third_party/tabulate"]
+	path = third_party/tabulate
+	url = https://github.com/p-ranav/tabulate.git
+[submodule "third_party/rapidcsv"]
+	path = third_party/rapidcsv
+	url = https://github.com/d99kris/rapidcsv.git
+[submodule "third_party/zlib-ng"]
+	path = third_party/zlib-ng
+	url = https://github.com/zlib-ng/zlib-ng.git
+	ignore = dirty
+[submodule "third_party/pugixml"]
+	path = third_party/pugixml
+	url = https://github.com/zeux/pugixml.git
+[submodule "third_party/libusb"]
+	path = third_party/libusb
+	url = https://github.com/libusb/libusb.git
+[submodule "third_party/cpplint"]
+	path = third_party/cpplint
+	url = https://github.com/cpplint/cpplint.git
+[submodule "third_party/DirectX-Headers"]
+	path = third_party/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "third_party/xbyak_aarch64"]
+	path = third_party/xbyak_aarch64
+	url = https://github.com/fujitsu/xbyak_aarch64.git

@@ -1,0 +1,51 @@
+diff -u -P -r libiberty/strerror.c libiberty/strerror.c
+--- libiberty/strerror.c	2013-11-04 07:33:39.000000000 -0800
++++ libiberty/strerror.c	2026-02-14 00:00:00.000000000 -0800
+@@ -469,8 +469,12 @@
+
+ #else
+
++#ifndef sys_nerr
+ extern int sys_nerr;
++#endif
++#ifndef sys_errlist
+ extern char *sys_errlist[];
++#endif
+
+ #endif
+
+diff -u -P -r libiberty/waitpid.c libiberty/waitpid.c
+--- libiberty/waitpid.c	2013-11-04 07:33:39.000000000 -0800
++++ libiberty/waitpid.c	2026-02-14 00:00:00.000000000 -0800
+@@ -24,6 +24,13 @@
+ #include <sys/wait.h>
+ #endif
+
++#if defined(_WIN32) || defined(__MINGW32__)
++pid_t
++waitpid (pid_t pid, int *stat_loc, int options ATTRIBUTE_UNUSED)
++{
++  return -1;
++}
++#else
+ pid_t
+ waitpid (pid_t pid, int *stat_loc, int options ATTRIBUTE_UNUSED)
+ {
+@@ -33,3 +40,4 @@
+ 	return wpid;
+     }
+ }
++#endif
+diff -u -P -r intl/dcigettext.c intl/dcigettext.c
+--- intl/dcigettext.c	2013-11-04 07:33:39.000000000 -0800
++++ intl/dcigettext.c	2026-02-14 00:00:00.000000000 -0800
+@@ -148,7 +148,9 @@
+ char *getwd ();
+ #  define getcwd(buf, max) getwd (buf)
+ # else
++#  if !defined HAVE_UNISTD_H
+ char *getcwd ();
++#  endif
+ # endif
+ # ifndef HAVE_STPCPY
+ static char *stpcpy PARAMS ((char *dest, const char *src));

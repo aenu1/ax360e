@@ -1,0 +1,26 @@
+test_mftb_1:
+  #_ REGISTER_IN r3 0x0000000000000000
+  #_ REGISTER_IN r4 0x0000000000000000
+  #_ REGISTER_IN r5 0x0000000000000000
+  mftb r3, 268
+  mftb r4, 268
+  cmpd r4, r3
+  li r5, 0
+  bgt .+8
+  b .+8
+  li r5, 1
+  blr
+  #_ REGISTER_OUT r5 0x0000000000000001
+
+test_mftb_2:
+  #_ REGISTER_IN r3 0x0000000000000000
+  #_ REGISTER_IN r4 0x0000000000000000
+  #_ REGISTER_IN r5 0x0000000000000000
+  mftb r3, 269
+  mftb r4, 269
+  cmpd r4, r3
+  li r5, 0
+  blt .+8
+  li r5, 1
+  blr
+  #_ REGISTER_OUT r5 0x0000000000000001

@@ -1,0 +1,39 @@
+test_vrfiz128_1:
+  # Truncate positive numbers: [1.1, 1.9, 2.5, 3.9] -> [1.0, 1.0, 2.0, 3.0]
+  #_ REGISTER_IN v4 [3F8CCCCD, 3FF33333, 40200000, 4079999A]
+  vrfiz128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3F8CCCCD, 3FF33333, 40200000, 4079999A]
+  #_ REGISTER_OUT v5 [3F800000, 3F800000, 40000000, 40400000]
+
+test_vrfiz128_2:
+  # Truncate negative numbers: [-1.1, -1.9, -2.5, -3.9] -> [-1.0, -1.0, -2.0, -3.0]
+  #_ REGISTER_IN v4 [BF8CCCCD, BFF33333, C0200000, C079999A]
+  vrfiz128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [BF8CCCCD, BFF33333, C0200000, C079999A]
+  #_ REGISTER_OUT v5 [BF800000, BF800000, C0000000, C0400000]
+
+test_vrfiz128_3:
+  # Truncate integers (no change): [1.0, 2.0, 3.0, 4.0]
+  #_ REGISTER_IN v4 [3F800000, 40000000, 40400000, 40800000]
+  vrfiz128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_OUT v5 [3F800000, 40000000, 40400000, 40800000]
+
+test_vrfiz128_4:
+  # Truncate zeros and small values: [0.0, -0.0, 0.9, -0.9] -> [0.0, -0.0, 0.0, -0.0]
+  #_ REGISTER_IN v4 [00000000, 80000000, 3F666666, BF666666]
+  vrfiz128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [00000000, 80000000, 3F666666, BF666666]
+  #_ REGISTER_OUT v5 [00000000, 80000000, 00000000, 80000000]
+
+test_vrfiz128_5:
+  # Truncate mixed values: [0.1, 0.5, 1.5, 2.9] -> [0.0, 0.0, 1.0, 2.0]
+  #_ REGISTER_IN v4 [3DCCCCCD, 3F000000, 3FC00000, 403CCCCD]
+  vrfiz128 v5, v4
+  blr
+  #_ REGISTER_OUT v4 [3DCCCCCD, 3F000000, 3FC00000, 403CCCCD]
+  #_ REGISTER_OUT v5 [00000000, 00000000, 3F800000, 40000000]

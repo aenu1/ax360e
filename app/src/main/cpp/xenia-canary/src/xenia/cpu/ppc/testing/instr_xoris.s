@@ -1,0 +1,76 @@
+test_xoris_1:
+  #_ REGISTER_IN r4 0xDEADBEEF00000000
+  xoris r3, r4, 0xFEDC
+  blr
+  #_ REGISTER_OUT r3 0xDEADBEEFFEDC0000
+  #_ REGISTER_OUT r4 0xDEADBEEF00000000
+
+test_xoris_1_constant:
+  lis r4, 0xDEAD
+  ori r4, r4, 0xBEEF
+  sldi r4, r4, 32
+  xoris r3, r4, 0xFEDC
+  blr
+  #_ REGISTER_OUT r3 0xDEADBEEFFEDC0000
+  #_ REGISTER_OUT r4 0xDEADBEEF00000000
+
+test_xoris_2:
+  #_ REGISTER_IN r4 0xFFFFFFFFFFFFFFFF
+  xoris r3, r4, 0xFFFF
+  blr
+  #_ REGISTER_OUT r3 0xFFFFFFFF0000FFFF
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFF
+
+test_xoris_2_constant:
+  li r4, -1
+  xoris r3, r4, 0xFFFF
+  blr
+  #_ REGISTER_OUT r3 0xFFFFFFFF0000FFFF
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFF
+
+test_xoris_3:
+  #_ REGISTER_IN r4 0x0000000000000000
+  xoris r3, r4, 0xFFFF
+  blr
+  #_ REGISTER_OUT r3 0x00000000FFFF0000
+  #_ REGISTER_OUT r4 0x0000000000000000
+
+test_xoris_3_constant:
+  li r4, 0
+  xoris r3, r4, 0xFFFF
+  blr
+  #_ REGISTER_OUT r3 0x00000000FFFF0000
+  #_ REGISTER_OUT r4 0x0000000000000000
+
+test_xoris_4:
+  #_ REGISTER_IN r4 0x123456789ABC0000
+  xoris r3, r4, 0x0000
+  blr
+  #_ REGISTER_OUT r3 0x123456789ABC0000
+  #_ REGISTER_OUT r4 0x123456789ABC0000
+
+test_xoris_4_constant:
+  lis r4, 0x1234
+  ori r4, r4, 0x5678
+  sldi r4, r4, 32
+  oris r4, r4, 0x9ABC
+  xoris r3, r4, 0x0000
+  blr
+  #_ REGISTER_OUT r3 0x123456789ABC0000
+  #_ REGISTER_OUT r4 0x123456789ABC0000
+
+test_xoris_5:
+  #_ REGISTER_IN r4 0xAAAAAAAAAAAAAAAA
+  xoris r3, r4, 0x5555
+  blr
+  #_ REGISTER_OUT r3 0xAAAAAAAAFFFFAAAA
+  #_ REGISTER_OUT r4 0xAAAAAAAAAAAAAAAA
+
+test_xoris_5_constant:
+  li r4, -1
+  srdi r4, r4, 1
+  sldi r4, r4, 1
+  xoris r3, r4, 0x5555
+  blr
+  #_ REGISTER_OUT r3 0xFFFFFFFFAAAAFFFE
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFE

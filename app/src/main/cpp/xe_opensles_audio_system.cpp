@@ -17,6 +17,11 @@ OpenSLESAudioSystem::OpenSLESAudioSystem(cpu::Processor *processor)
 
     OpenSLESAudioSystem::~OpenSLESAudioSystem() = default;
 
+
+    std::string OpenSLESAudioSystem::name() const{
+        return "OpenSLES";
+    }
+
     X_STATUS OpenSLESAudioSystem::CreateDriver(size_t index,
                                           xe::threading::Semaphore* semaphore,
                                           AudioDriver** out_driver) {

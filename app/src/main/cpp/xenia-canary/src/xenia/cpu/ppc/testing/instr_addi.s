@@ -1,0 +1,73 @@
+test_addi_1:
+  #_ REGISTER_IN r4 0x0000000000001000
+  addi r3, r4, 0x500
+  blr
+  #_ REGISTER_OUT r3 0x0000000000001500
+  #_ REGISTER_OUT r4 0x0000000000001000
+
+test_addi_1_constant:
+  li r4, 0x1000
+  addi r3, r4, 0x500
+  blr
+  #_ REGISTER_OUT r3 0x0000000000001500
+  #_ REGISTER_OUT r4 0x0000000000001000
+
+test_addi_2:
+  #_ REGISTER_IN r4 0xFFFFFFFFFFFFFFFF
+  addi r3, r4, 1
+  blr
+  #_ REGISTER_OUT r3 0x0000000000000000
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFF
+
+test_addi_2_constant:
+  li r4, -1
+  addi r3, r4, 1
+  blr
+  #_ REGISTER_OUT r3 0x0000000000000000
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFF
+
+test_addi_3:
+  #_ REGISTER_IN r4 0x0000000000000100
+  addi r3, r4, -1
+  blr
+  #_ REGISTER_OUT r3 0x00000000000000FF
+  #_ REGISTER_OUT r4 0x0000000000000100
+
+test_addi_3_constant:
+  li r4, 0x100
+  addi r3, r4, -1
+  blr
+  #_ REGISTER_OUT r3 0x00000000000000FF
+  #_ REGISTER_OUT r4 0x0000000000000100
+
+test_addi_4:
+  #_ REGISTER_IN r0 0xDEADBEEFDEADBEEF
+  addi r3, r0, 0x1234
+  blr
+  #_ REGISTER_OUT r3 0x0000000000001234
+  #_ REGISTER_OUT r0 0xDEADBEEFDEADBEEF
+
+test_addi_4_constant:
+  lis r0, 0xDEAD
+  ori r0, r0, 0xBEEF
+  sldi r0, r0, 32
+  oris r0, r0, 0xDEAD
+  ori r0, r0, 0xBEEF
+  addi r3, r0, 0x1234
+  blr
+  #_ REGISTER_OUT r3 0x0000000000001234
+  #_ REGISTER_OUT r0 0xDEADBEEFDEADBEEF
+
+test_addi_5:
+  #_ REGISTER_IN r4 0x0000000000007FFF
+  addi r3, r4, 0x7FFF
+  blr
+  #_ REGISTER_OUT r3 0x000000000000FFFE
+  #_ REGISTER_OUT r4 0x0000000000007FFF
+
+test_addi_5_constant:
+  li r4, 0x7FFF
+  addi r3, r4, 0x7FFF
+  blr
+  #_ REGISTER_OUT r3 0x000000000000FFFE
+  #_ REGISTER_OUT r4 0x0000000000007FFF

@@ -89,7 +89,7 @@ namespace xe {
                 int16_t thumb_ry = 0;
 
 
-                if (/*window()->HasFocus() && */is_active()) {
+                if (/*window()->HasFocus() && */1) {
                     //XELOGI("AID:GetState:HasFocus");
                     for (const KeyStatus& ks : key_status_) {
                         if (!ks.pressed) continue;
@@ -197,9 +197,9 @@ namespace xe {
                     return X_ERROR_DEVICE_NOT_CONNECTED;
                 }
 
-                if (!is_active()) {
+                /*if (!is_active()) {
                     return X_ERROR_EMPTY;
-                }
+                }*/
 
                 X_RESULT result = X_ERROR_EMPTY;
 
@@ -252,9 +252,9 @@ namespace xe {
 
 
             void AndroidInputDriver::OnKey(int key_index, bool pressed, short value){
-                if (!is_active()) {
+                /*if (!is_active()) {
                     return;
-                }
+                }*/
 
                 auto global_lock = global_critical_region_.Acquire();
                 prev_key_status_[key_index] = key_status_[key_index];
