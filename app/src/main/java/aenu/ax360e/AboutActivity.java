@@ -60,6 +60,9 @@ public class AboutActivity extends AppCompatActivity {
                 + " *部分优化与修正\n"
                 + " *适配不支持触屏的设备\n"
                 + " *自定义驱动支持(仅adreno)\n"
+                +"1.16(2026-05-15)\n"
+                + " *切换至xenia canary\n"
+                + " *部分修正\n"
                 + " \n";
 
         return log;
