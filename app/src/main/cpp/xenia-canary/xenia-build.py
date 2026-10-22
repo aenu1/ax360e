@@ -1392,7 +1392,7 @@ class TestCommand(BaseBuildCommand):
             "xenia-kernel-tests",
             ]
         args["target"] = test_targets
-
+        args["build_tests"] = True
         # Build all targets (if desired).
         if not args["no_build"]:
             result = super(TestCommand, self).execute(args, [], cwd)

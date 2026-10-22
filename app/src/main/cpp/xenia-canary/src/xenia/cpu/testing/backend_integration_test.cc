@@ -822,7 +822,37 @@ TEST_CASE("FPCR_PRESERVED_ACROSS_HOST_CALLBACK", "[backend]") {
 // DWARF .eh_frame data registered via __register_frame.
 
 #if !XE_PLATFORM_WIN32
+#if XE_PLATFORM_AX360E
+// Android/Bionic has no <execinfo.h> (backtrace() only appears at API 33+ and
+// we build against android-28). Provide an equivalent using the DWARF unwind
+// API, which is available on every NDK API level and exercises the same
+// .eh_frame data the test is checking.
+#include <unwind.h>
+static int backtrace(void** frames, int max_frames) {
+  if (frames == nullptr || max_frames <= 0) {
+    return 0;
+  }
+  struct Args {
+    void** frames;
+    int max;
+    int count;
+  } args{frames, max_frames, 0};
+  _Unwind_Backtrace(
+      +[](struct _Unwind_Context* context, void* arg) -> _Unwind_Reason_Code {
+        auto* a = static_cast<Args*>(arg);
+        if (a->count >= a->max) {
+          return _URC_END_OF_STACK;
+        }
+        a->frames[a->count++] =
+            reinterpret_cast<void*>(_Unwind_GetIP(context));
+        return _URC_NO_REASON;
+      },
+      &args);
+  return args.count;
+}
+#else
 #include <execinfo.h>
+#endif  // XE_PLATFORM_AX360E
 static int jit_backtrace_depth = 0;
 static void CaptureJITBacktrace(ppc::PPCContext* ctx, void* arg0, void* arg1) {
   void* frames[64];

@@ -156,3 +156,5 @@ app/src/main/cpp/xenia-canary/recent.toml
 /app/src/main/cpp/xenia-canary/third_party/snappy/snappy-stubs-public.h
 /app/src/main/cpp/xenia-canary/third_party/snappy/ZERO_CHECK.vcxproj
 /app/src/main/cpp/xenia-canary/third_party/snappy/ZERO_CHECK.vcxproj.filters
+
+t/
