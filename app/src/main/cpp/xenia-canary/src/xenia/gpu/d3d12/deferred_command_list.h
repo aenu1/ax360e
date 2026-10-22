@@ -215,6 +215,15 @@ class DeferredCommandList {
     args.destination_offset = destination_offset;
   }
 
+  void D3DSetPredication(ID3D12Resource* buffer, UINT64 aligned_buffer_offset,
+                         D3D12_PREDICATION_OP operation) {
+    auto& args = *reinterpret_cast<D3DSetPredicationArguments*>(WriteCommand(
+        Command::kD3DSetPredication, sizeof(D3DSetPredicationArguments)));
+    args.buffer = buffer;
+    args.aligned_buffer_offset = aligned_buffer_offset;
+    args.operation = operation;
+  }
+
   void D3DIASetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW* view) {
     auto& args = *reinterpret_cast<D3D12_INDEX_BUFFER_VIEW*>(WriteCommand(
         Command::kD3DIASetIndexBuffer, sizeof(D3D12_INDEX_BUFFER_VIEW)));
@@ -292,6 +301,32 @@ class DeferredCommandList {
     auto& arg = *reinterpret_cast<UINT*>(
         WriteCommand(Command::kD3DOMSetStencilRef, sizeof(UINT)));
     arg = stencil_ref;
+  }
+
+  void D3DResolveSubresourceRegion(ID3D12Resource* dst_resource,
+                                   UINT dst_subresource, UINT dst_x, UINT dst_y,
+                                   ID3D12Resource* src_resource,
+                                   UINT src_subresource,
+                                   const D3D12_RECT* src_rect,
+                                   DXGI_FORMAT format,
+                                   D3D12_RESOLVE_MODE resolve_mode) {
+    auto& args = *reinterpret_cast<D3DResolveSubresourceRegionArguments*>(
+        WriteCommand(Command::kD3DResolveSubresourceRegion,
+                     sizeof(D3DResolveSubresourceRegionArguments)));
+    args.dst_resource = dst_resource;
+    args.dst_subresource = dst_subresource;
+    args.dst_x = dst_x;
+    args.dst_y = dst_y;
+    args.src_resource = src_resource;
+    args.src_subresource = src_subresource;
+    if (src_rect) {
+      args.has_src_rect = true;
+      args.src_rect = *src_rect;
+    } else {
+      args.has_src_rect = false;
+    }
+    args.format = format;
+    args.resolve_mode = resolve_mode;
   }
 
   void D3DResourceBarrier(UINT num_barriers,
@@ -495,12 +530,14 @@ class DeferredCommandList {
     kD3DBeginQuery,
     kD3DEndQuery,
     kD3DResolveQueryData,
+    kD3DSetPredication,
     kD3DIASetIndexBuffer,
     kD3DIASetPrimitiveTopology,
     kD3DIASetVertexBuffers,
     kD3DOMSetBlendFactor,
     kD3DOMSetRenderTargets,
     kD3DOMSetStencilRef,
+    kD3DResolveSubresourceRegion,
     kD3DResourceBarrier,
     kRSSetScissorRect,
     kRSSetViewport,
@@ -619,6 +656,12 @@ class DeferredCommandList {
     UINT64 destination_offset;
   };
 
+  struct D3DSetPredicationArguments {
+    ID3D12Resource* buffer;
+    UINT64 aligned_buffer_offset;
+    D3D12_PREDICATION_OP operation;
+  };
+
   struct D3DIASetVertexBuffersHeader {
     UINT start_slot;
     UINT num_views;
@@ -652,6 +695,19 @@ class DeferredCommandList {
   struct SetDescriptorHeapsArguments {
     ID3D12DescriptorHeap* cbv_srv_uav_descriptor_heap;
     ID3D12DescriptorHeap* sampler_descriptor_heap;
+  };
+
+  struct D3DResolveSubresourceRegionArguments {
+    ID3D12Resource* dst_resource;
+    UINT dst_subresource;
+    UINT dst_x;
+    UINT dst_y;
+    ID3D12Resource* src_resource;
+    UINT src_subresource;
+    D3D12_RECT src_rect;
+    bool has_src_rect;
+    DXGI_FORMAT format;
+    D3D12_RESOLVE_MODE resolve_mode;
   };
 
   struct D3DSetSamplePositionsArguments {

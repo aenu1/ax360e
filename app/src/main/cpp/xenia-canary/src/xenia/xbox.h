@@ -131,6 +131,7 @@ typedef uint32_t X_HRESULT;
 #define X_E_NO_MORE_FILES                       X_HRESULT_FROM_WIN32(X_ERROR_NO_MORE_FILES)
 #define X_E_NOT_SUPPORTED                       X_HRESULT_FROM_WIN32(X_ERROR_NOT_SUPPORTED)
 #define X_E_INVALIDARG                          X_HRESULT_FROM_WIN32(X_ERROR_INVALID_PARAMETER)
+#define X_E_INSUFFICIENT_BUFFER                 X_HRESULT_FROM_WIN32(X_ERROR_INSUFFICIENT_BUFFER)
 #define X_E_DEVICE_NOT_CONNECTED                X_HRESULT_FROM_WIN32(X_ERROR_DEVICE_NOT_CONNECTED)
 #define X_E_NOTFOUND                            X_HRESULT_FROM_WIN32(X_ERROR_NOT_FOUND)
 #define X_E_NO_SUCH_USER                        X_HRESULT_FROM_WIN32(X_ERROR_NO_SUCH_USER)
@@ -436,7 +437,7 @@ enum class XOnlineCountry : uint32_t {
 };
 
 enum class XContentType : uint32_t {
-  kFolder = 0xffffffff,
+  kAll = 0xFFFFFFFF,  // Iterate all types
   kInvalid = 0x00000000,
   kSavedGame = 0x00000001,
   kMarketplaceContent = 0x00000002,
@@ -475,7 +476,7 @@ enum class XContentType : uint32_t {
 };
 
 inline const std::map<XContentType, std::string> XContentTypeMap = {
-    {XContentType::kFolder, "Folder"},
+    {XContentType::kAll, "All"},
     {XContentType::kSavedGame, "Saved Game"},
     {XContentType::kMarketplaceContent, "Marketplace Content"},
     {XContentType::kPublisher, "Publisher"},
@@ -532,9 +533,20 @@ enum X_MARKETPLACE_ENTRYPOINT : uint32_t {
   ContentList_Background = 4,
   ContentItem_Background = 5,
   ForcedNameChangeV1 = 6,
+  PrepaidCode = 7,
   ForcedNameChangeV2 = 8,
-  ProfileNameChange = 9,
-  ActiveDownloads = 12
+  GamerTagPurchase = 9,
+  SignUpCreditCard = 10,
+  SignUpParentCreditCard = 11,
+  ActiveDownloads = 12,
+  ViewDownloadDetails = 13,
+  GoldUpsell = 15,
+  TermsOfUse = 16,
+  PaymentOptions = 19,
+  PurchaseOrder = 21,
+  AccountSecurity = 23,
+  ViewTermsOfUse = 24,
+  MaxEntrypoint = 25
 };
 
 enum X_MARKETPLACE_DOWNLOAD_ITEMS_ENTRYPOINTS : uint32_t {

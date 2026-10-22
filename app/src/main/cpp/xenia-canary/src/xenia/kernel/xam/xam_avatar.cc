@@ -292,10 +292,10 @@ DECLARE_XAM_EXPORT1(XamAvatarGetAssetBinary, kAvatars, kStub);
 
 void XamAvatarGetInstalledAssetPackageDescription_entry(
     pointer_t<X_ASSET_ID> asset_id_ptr,
-    pointer_t<XCONTENT_AGGREGATE_DATA>
+    pointer_t<XCONTENT_DATA_AGGREGATE>
         content_data_ptr  // pointer_t<XCONTENT_DATA_INTERNAL>
 ) {
-  XCONTENT_AGGREGATE_DATA content_data;
+  XCONTENT_DATA_AGGREGATE content_data;
   content_data.content_type = XContentType::kAvatarItem;
   content_data.xuid = 0;
   content_data.title_id = asset_id_ptr->title_id;
@@ -349,7 +349,7 @@ dword_result_t XamAvatarLoadAnimation_entry(
 
   std::string summary = "Request to load avatar animation: ";
 
-  if (XAnimationTypeMap.find(*asset_id_ptr) != XAnimationTypeMap.cend()) {
+  if (XAnimationTypeMap.contains(*asset_id_ptr)) {
     summary += XAnimationTypeMap.at(*asset_id_ptr);
   } else {
     summary += fmt::format("Unknown animation 0x{:016x}",

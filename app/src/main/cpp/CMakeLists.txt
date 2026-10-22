@@ -67,6 +67,7 @@ target_sources(emu
         xenia-canary/src/xenia/app/emulator_window.cc
         xenia-canary/src/xenia/app/profile_dialogs.cc
         xenia-canary/src/xenia/app/console_settings_dialog.cc
+        xenia-canary/src/xenia/app/content_list_dialog.cc
         xenia-canary/src/xenia/ui/file_picker_android.cc
         xenia-canary/src/xenia/ui/surface_android.cc
         cpuinfo.cpp

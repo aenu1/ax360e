@@ -103,6 +103,9 @@ X_HRESULT XmpApp::XMPDeleteTitlePlaylist(uint32_t playlist_handle) {
 X_HRESULT XmpApp::XMPPlayTitlePlaylist(uint32_t playlist_handle,
                                        uint32_t song_handle) {
   XELOGD("XMPPlayTitlePlaylist({:08X}, {:08X})", playlist_handle, song_handle);
+  if (!playlist_handle) {
+    return X_E_INVALIDARG;
+  }
   kernel_state_->emulator()->audio_media_player()->Play(playlist_handle,
                                                         song_handle, false);
   kernel_state_->BroadcastNotification(kXNotificationXmpPlaybackBehaviorChanged,
@@ -297,6 +300,7 @@ X_HRESULT XmpApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
                                     args->storage_ptr);
     }
     case 0x0007000E: {
+      // XMPGetCurrentSong
       assert_true(!buffer_length ||
                   buffer_length == sizeof(XMP_GET_CURRENT_SONG));
       XMP_GET_CURRENT_SONG* args =
@@ -383,9 +387,7 @@ X_HRESULT XmpApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       // 58411446
       kernel_state_->BroadcastNotification(
           kXNotificationXmpPlaybackControllerChanged,
-          media_player->IsXMPOverrideEnabled()
-              ? false
-              : media_player->IsTitleInPlaybackControl());
+          media_player->IsTitleInPlaybackControl());
 
       return X_E_SUCCESS;
     }
@@ -432,9 +434,15 @@ X_HRESULT XmpApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       XMP_CREATE_USER_PLAYLIST_ENUMERATOR* args =
           reinterpret_cast<XMP_CREATE_USER_PLAYLIST_ENUMERATOR*>(buffer);
 
+      assert_true(args->xmp_client == apu::XMP_CLIENT::Game);
+
       XELOGD("XMPCreateUserPlaylistEnumerator({:08X}, {:08X}, {:08X})",
              uint32_t(args->xmp_client.get()), uint32_t(args->flags),
-             uint32_t(args->object_ptr));
+             uint32_t(args->private_enum_structure_ptr));
+      if (!args->private_enum_structure_ptr ||
+          args->xmp_client != apu::XMP_CLIENT::Game) {
+        return X_E_INVALIDARG;
+      }
       return X_E_SUCCESS;
     }
     case 0x00070029: {
@@ -539,14 +547,18 @@ X_HRESULT XmpApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       assert_true(!buffer_length || buffer_length == sizeof(XMP_DASH_INIT));
       XMP_DASH_INIT* args = reinterpret_cast<XMP_DASH_INIT*>(buffer);
 
-      assert_true(args->xmp_client == apu::XMP_CLIENT::Game ||
-                  args->xmp_client == apu::XMP_CLIENT::Dash);
+      assert_true(args->xmp_client == apu::XMP_CLIENT::Dash);
       XELOGD(
           "XMPDashInit({:08X}, {:08X}, {:08X}, {:08X}, {:08X}, {:08X}), "
           "unimplemented",
           uint32_t(args->xmp_client.get()), args->buffer_ptr.get(),
           args->buffer_length.get(), args->unk1.get(), args->unk2.get(),
           args->storage_ptr.get());
+
+      if (args->xmp_client != apu::XMP_CLIENT::Dash || !args->storage_ptr ||
+          !args->buffer_ptr) {
+        return X_E_INVALIDARG;
+      }
 
       kernel_state_->BroadcastNotification(kXNotificationXmpDashInitChanged, 1);
       return X_E_SUCCESS;
@@ -604,7 +616,31 @@ X_HRESULT XmpApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
           "unimplemented",
           uint32_t(args->xmp_client.get()), args->workspace_type.get(),
           args->storage_ptr.get(), args->storage_length.get());
+
+      if (args->xmp_client > apu::XMP_CLIENT::Game ||
+          !args->storage_ptr && args->workspace_type != 3) {
+        return X_E_INVALIDARG;
+      }
       return X_E_SUCCESS;
+    }
+    case 0x00070046: {
+      // XMPGetMediaSource
+      // Called on when deleting music in storage
+      assert_true(!buffer_length ||
+                  buffer_length == sizeof(XMP_GET_MEDIA_SOURCE));
+      XMP_GET_MEDIA_SOURCE* args =
+          reinterpret_cast<XMP_GET_MEDIA_SOURCE*>(buffer);
+
+      XELOGD(
+          "XMPGetMediaSource({:08X}, {:08X}, {:08X}), "
+          "unimplemented",
+          uint32_t(args->xmp_client.get()), args->unk1.get(),
+          args->media_resources_ptr.get());
+      if (!args->media_resources_ptr) {
+        return X_E_INVALIDARG;
+      }
+      // Until valid source information provided
+      return X_E_FAIL;  // X_E_SUCCESS
     }
     case 0x00070053: {
       // Called on the blades dashboard Version 4532-5787 after clicking on the

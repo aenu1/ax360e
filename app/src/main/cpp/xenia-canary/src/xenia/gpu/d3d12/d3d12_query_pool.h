@@ -7,8 +7,8 @@
  ******************************************************************************
  */
 
-#ifndef XENIA_GPU_D3D12_D3D12_ZPD_QUERY_POOL_H_
-#define XENIA_GPU_D3D12_D3D12_ZPD_QUERY_POOL_H_
+#ifndef XENIA_GPU_D3D12_D3D12_QUERY_POOL_H_
+#define XENIA_GPU_D3D12_D3D12_QUERY_POOL_H_
 
 #include <cstdint>
 #include <vector>
@@ -28,30 +28,30 @@ namespace d3d12 {
 
 class DeferredCommandList;
 
-// D3D12 occlusion query pool for ZPD reports. Queries live in ID3D12QueryHeap,
-// results are copied to a persistent readback buffer via ResolveQueryData.
+// D3D12 occlusion query pool for ZPD reports and VIZ surveys. Queries live in
+// ID3D12QueryHeap, results are copied to a persistent readback buffer via
+// ResolveQueryData.
 //
 // D3D12 requires BeginQuery and EndQuery to be recorded in the same command
-// list, so segments split at EndSubmission. Discarded queries still need a
-// paired EndQuery or the heap slot may become undefined on some drivers.
+// list, so segments split at EndSubmission.
 //
 // FlushResolveBatch coalesces pending indices into contiguous ranges to cut
 // down on ResolveQueryData call count.
 //
 // ROV queries use a separate path instead of normal D3D12 results. They write
-// surviving MSAA coverage into a dedicated buffer, one slot per active query.
-// QueueQueryResolve + ClearROVCounter are used instead of BeginQuery and
-// EndQuery.
-class D3D12ZPDQueryPool {
+// depth/stencil outcomes into a dedicated buffer, one slot per active query.
+// QueueQueryResolve + ClearCounter are used instead of BeginQuery and EndQuery.
+// Hybrid RTV queries use both, adding pre-test coverage to the slot's Total.
+class D3D12QueryPool {
  public:
-  D3D12ZPDQueryPool() = default;
-  D3D12ZPDQueryPool(const D3D12ZPDQueryPool&) = delete;
-  D3D12ZPDQueryPool& operator=(const D3D12ZPDQueryPool&) = delete;
-  ~D3D12ZPDQueryPool() { Shutdown(); }
+  D3D12QueryPool() = default;
+  D3D12QueryPool(const D3D12QueryPool&) = delete;
+  D3D12QueryPool& operator=(const D3D12QueryPool&) = delete;
+  ~D3D12QueryPool() { Shutdown(); }
 
   bool EnsureInitialized(const ui::d3d12::D3D12Provider& provider,
                          uint32_t requested_capacity, bool can_recreate,
-                         bool initialize_rov_counter);
+                         bool initialize_counter);
   void Shutdown();
 
   bool rtv_initialized() const {
@@ -61,19 +61,19 @@ class D3D12ZPDQueryPool {
 
   uint32_t capacity() const { return capacity_; }
 
+  ID3D12QueryHeap* query_heap() const { return query_heap_.Get(); }
+
   bool has_pending_resolve_batch() const {
     return !resolve_batch_indices_.empty() ||
-           !rov_counter_resolve_batch_indices_.empty();
+           !counter_resolve_batch_indices_.empty();
   }
 
-  bool rov_initialized() const {
-    return rov_counter_buffer_ && rov_counter_readback_buffer_ &&
-           rov_counter_readback_mapping_ != nullptr && capacity_ != 0;
+  bool counter_initialized() const {
+    return counter_buffer_ && counter_readback_buffer_ &&
+           counter_readback_mapping_ != nullptr && capacity_ != 0;
   }
 
-  ID3D12Resource* rov_counter_buffer() const {
-    return rov_counter_buffer_.Get();
-  }
+  ID3D12Resource* counter_buffer() const { return counter_buffer_.Get(); }
 
   bool has_free_indices() const { return !free_indices_.empty(); }
 
@@ -85,15 +85,15 @@ class D3D12ZPDQueryPool {
                   uint32_t query_index) const;
   void EndQuery(DeferredCommandList& deferred_command_list,
                 uint32_t query_index) const;
-  void QueueQueryResolve(uint32_t query_index, bool uses_rov_counter);
-  void ClearROVCounter(DeferredCommandList& deferred_command_list,
-                       uint32_t query_index) const;
+  void QueueQueryResolve(uint32_t query_index, bool counter);
+  void ClearCounter(DeferredCommandList& deferred_command_list,
+                    uint32_t query_index) const;
 
   void FlushResolveBatch(DeferredCommandList& deferred_command_list,
                          bool submission_open);
 
-  uint64_t GetQueryReadbackValue(uint32_t query_index,
-                                 bool uses_rov_counter) const;
+  XenosZPDReport GetQueryReadbackValue(uint32_t query_index, bool counter,
+                                       bool hybrid) const;
 
  private:
   Microsoft::WRL::ComPtr<ID3D12QueryHeap> query_heap_;
@@ -102,9 +102,9 @@ class D3D12ZPDQueryPool {
   Microsoft::WRL::ComPtr<ID3D12Resource> readback_buffer_;
   uint64_t* readback_mapping_ = nullptr;
 
-  Microsoft::WRL::ComPtr<ID3D12Resource> rov_counter_buffer_;
-  Microsoft::WRL::ComPtr<ID3D12Resource> rov_counter_readback_buffer_;
-  uint32_t* rov_counter_readback_mapping_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12Resource> counter_buffer_;
+  Microsoft::WRL::ComPtr<ID3D12Resource> counter_readback_buffer_;
+  uint32_t* counter_readback_mapping_ = nullptr;
 
   uint32_t capacity_ = 0;
   std::vector<uint32_t> free_indices_;
@@ -112,12 +112,8 @@ class D3D12ZPDQueryPool {
   // Bumped on each acquire so stale readbacks from a recycled slot get dropped.
   std::vector<uint32_t> index_generations_;
 
-  std::vector<uint8_t> resolve_batch_pending_;
-  // Active indices with resolve_batch_pending_[i] == 1, so flush iterates
-  // only the active entries instead of scanning the full capacity.
   std::vector<uint32_t> resolve_batch_indices_;
-  std::vector<uint8_t> rov_counter_resolve_batch_pending_;
-  std::vector<uint32_t> rov_counter_resolve_batch_indices_;
+  std::vector<uint32_t> counter_resolve_batch_indices_;
   // Reusable scratch for coalesced contiguous ranges during flush.
   std::vector<ResolveRange> resolve_batch_ranges_;
 };
@@ -126,4 +122,4 @@ class D3D12ZPDQueryPool {
 }  // namespace gpu
 }  // namespace xe
 
-#endif  // XENIA_GPU_D3D12_D3D12_ZPD_QUERY_POOL_H_
+#endif  // XENIA_GPU_D3D12_D3D12_QUERY_POOL_H_

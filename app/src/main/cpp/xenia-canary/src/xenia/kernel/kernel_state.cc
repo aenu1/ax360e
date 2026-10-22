@@ -31,7 +31,7 @@
 #include "third_party/crypto/TinySHA1.hpp"
 
 DEFINE_bool(apply_title_update, true, "Apply title updates.", "Kernel");
-DEFINE_bool(allow_incompatible_title_update, true,
+DEFINE_bool(allow_incompatible_title_update, false,
             "Allow title updates with mismatched signatures to be applied.",
             "Kernel");
 
@@ -66,6 +66,7 @@ KernelState::KernelState(Emulator* emulator)
   smc_ = std::make_unique<SystemManagementController>();
   xconfig_ =
       std::make_unique<XConfig>(emulator->storage_root() / "xconfig.settings");
+  nui_ = std::make_unique<NUIController>();
 
   InitializeKernelGuestGlobals();
   kernel_version_ = KernelVersion(cvars::kernel_build_version);
@@ -103,6 +104,16 @@ KernelState::~KernelState() {
 
 KernelState* KernelState::shared() { return shared_kernel_state_; }
 
+xex2_opt_execution_info* KernelState::GetExecutionInfo() const {
+  if (!executable_module_) {
+    return 0;
+  }
+
+  xex2_opt_execution_info* exec_info = 0;
+  executable_module_->GetOptHeader(XEX_HEADER_EXECUTION_INFO, &exec_info);
+  return exec_info;
+}
+
 uint32_t KernelState::title_id() const {
   if (!executable_module_) {
     return 0;
@@ -110,8 +121,7 @@ uint32_t KernelState::title_id() const {
 
   assert_not_null(executable_module_);
 
-  xex2_opt_execution_info* exec_info = 0;
-  executable_module_->GetOptHeader(XEX_HEADER_EXECUTION_INFO, &exec_info);
+  xex2_opt_execution_info* exec_info = GetExecutionInfo();
 
   if (exec_info) {
     return exec_info->title_id;
@@ -692,11 +702,23 @@ X_RESULT KernelState::ApplyTitleUpdate(
       XELOGW(
           "Skipping incompatible title update for {} due to signature mismatch",
           title_module->name());
+      if (!GetExecutableModule()) {
+        emulator_->display_window()->app_context().CallInUIThread([&]() {
+          new xe::ui::HostNotificationWindow(
+              emulator_->imgui_drawer(), "Warning!",
+              "Title Update signature doesn't match. Skipping its application!",
+              0);
+        });
+      }
       return X_STATUS_SUCCESS;
     }
 
     // First module that is loaded is always main executable. That way we can
     // prevent random message spam in case of loading/unloading.
+    XELOGW(
+        "Applying incompatible title update for {} due to enabled "
+        "allow_incompatible_title_update config option!",
+        title_module->name());
     if (!GetExecutableModule()) {
       emulator_->display_window()->app_context().CallInUIThread([&]() {
         new xe::ui::HostNotificationWindow(
@@ -711,27 +733,24 @@ X_RESULT KernelState::ApplyTitleUpdate(
   return ApplyTitleUpdate(title_module, patch_module);
 }
 
-std::vector<xam::XCONTENT_AGGREGATE_DATA> KernelState::FindTitleUpdate(
+std::vector<xam::XCONTENT_DATA_INTERNAL> KernelState::FindTitleUpdate(
     const uint32_t title_id) const {
   if (!cvars::apply_title_update) {
     return {};
   }
 
   return xam_state_->content_manager()->ListContent(
-      1, 0, title_id, xe::XContentType::kInstaller);
+      1, 0, title_id, xe::XContentType::kInstaller,
+      xe::kernel::xam::XContentFlag::kNone);
 }
 
 const object_ref<UserModule> KernelState::LoadTitleUpdate(
-    const xam::XCONTENT_AGGREGATE_DATA* title_update,
+    const xam::XCONTENT_DATA_INTERNAL* title_update,
     const object_ref<UserModule> module) {
-  uint32_t disc_number = -1;
-  if (module->is_multi_disc_title()) {
-    disc_number = module->disc_number();
-  }
-
   uint32_t content_license = 0;
   X_RESULT open_status = content_manager()->OpenContent(
-      "UPDATE", 0, *title_update, content_license, disc_number);
+      "UPDATE", 0, *title_update, content_license,
+      module->is_multi_disc_title() ? module->disc_number() : -1);
 
   std::string mount_path = "";
   if (!file_system()->FindSymbolicLink(kDefaultGameSymbolicLink, mount_path)) {
@@ -749,12 +768,14 @@ const object_ref<UserModule> KernelState::LoadTitleUpdate(
   }
 
   const std::string relative_path =
-      module->path().substr(mount_path.size() + 1) + 'p';
+      module->path().substr(mount_path.size()) + 'p';
 
-  xe::vfs::Entry* patch_entry =
-      kernel_state()->file_system()->ResolvePath(resolved_path + relative_path);
+  xe::vfs::Entry* patch_entry = kernel_state()->file_system()->ResolvePath(
+      xe::utf8::join_guest_paths(resolved_path, relative_path));
 
   if (!patch_entry) {
+    XELOGI("Loading XEX patch failed. Path doesn't exist {}",
+           xe::utf8::join_guest_paths(resolved_path, relative_path));
     return nullptr;
   }
 
@@ -835,9 +856,9 @@ void KernelState::UnloadUserModule(const object_ref<UserModule>& module,
                          xe::countof(args));
   }
 
-  auto iter = std::find_if(
-      user_modules_.begin(), user_modules_.end(),
-      [&module](const auto& e) { return e->path() == module->path(); });
+  auto iter = std::ranges::find_if(user_modules_, [&module](const auto& e) {
+    return e->path() == module->path();
+  });
   assert_true(iter != user_modules_.end());  // Unloading an unregistered module
                                              // is probably really bad
   user_modules_.erase(iter);
@@ -1026,6 +1047,12 @@ void KernelState::RegisterNotifyListener(XNotifyListener* listener) {
     listener->EnqueueNotification(kXNotificationSystemUI,
                                   xam_state()->IsUIActive());
     listener->EnqueueNotification(kXNotificationSystemSignInChanged, 1);
+    // 415607FA: Doesn't like receiving this notification on boot. Causes game
+    // to crash.
+    if (title_id() == kDashboardID) {
+      listener->EnqueueNotification(kXNotificationSystemStorageDevicesChanged,
+                                    0);
+    }
   }
   if (!has_notified_live_startup_ && listener->mask() & kXNotifyLive) {
     has_notified_live_startup_ = true;
@@ -1033,6 +1060,15 @@ void KernelState::RegisterNotifyListener(XNotifyListener* listener) {
     listener->EnqueueNotification(kXNotificationLiveConnectionChanged,
                                   0x001510F1L);
     listener->EnqueueNotification(kXNotificationLiveLinkStateChanged, 0);
+  }
+
+  if (!has_notified_xmp_startup_ && listener->mask() & kXNotifyXmp) {
+    has_notified_xmp_startup_ = true;
+    // Playback state is idle until the media player broadcasts a transition
+    // of its own, so only the controller is worth priming.
+    listener->EnqueueNotification(
+        kXNotificationXmpPlaybackControllerChanged,
+        emulator()->audio_media_player()->IsTitleInPlaybackControl());
   }
 }
 
@@ -1535,7 +1571,7 @@ void KernelState::InitializeKernelGuestGlobals() {
 
   // init unknown object
 
-  block->XboxKernelDefaultObject.type = DISPATCHER_AUTO_RESET_EVENT;
+  block->XboxKernelDefaultObject.type = EventSynchronizationObject;
   block->XboxKernelDefaultObject.signal_state = 1;
   block->XboxKernelDefaultObject.wait_list.flink_ptr =
       oddobject_offset + offsetof(X_DISPATCH_HEADER, wait_list.flink_ptr);

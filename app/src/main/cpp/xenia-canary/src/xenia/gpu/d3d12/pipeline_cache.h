@@ -54,7 +54,7 @@ class PipelineCache {
   PipelineCache(D3D12CommandProcessor& command_processor,
                 const RegisterFile& register_file,
                 const D3D12RenderTargetCache& render_target_cache,
-                bool bindless_resources_used);
+                bool bindless_resources_used, bool zpd_hybrid_supported);
   ~PipelineCache();
 
   bool Initialize();
@@ -104,6 +104,7 @@ class PipelineCache {
       const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask, bool apply_polygon_offset_in_shader,
+      bool zpd_total, bool viz_survey,
       uint32_t bound_depth_and_color_render_target_bits,
       const uint32_t* bound_depth_and_color_render_targets_formats,
       void** pipeline_handle_out, ID3D12RootSignature** root_signature_out);
@@ -119,6 +120,10 @@ class PipelineCache {
   ID3D12RootSignature* GetRootSignatureByHandle(void* handle) const {
     return reinterpret_cast<const Pipeline*>(handle)
         ->description.root_signature;
+  }
+  xenos::MsaaSamples GetHostMsaaSamplesByHandle(void* handle) const {
+    return reinterpret_cast<const Pipeline*>(handle)
+        ->description.description.host_msaa_samples;
   }
 
  private:
@@ -180,6 +185,8 @@ class PipelineCache {
     kBlendFactor,
     kInvBlendFactor,
     kSrcAlphaSat,
+    kAlphaFactor,
+    kInvAlphaFactor,
   };
 
   // Update PipelineDescription::kVersion if anything is changed!
@@ -223,6 +230,12 @@ class PipelineCache {
     uint32_t stencil_read_mask : 8;                   // 27
     // Native draw (scale threshold), keeps slope-scale unscaled.
     uint32_t resolution_scale_native : 1;  // 28
+    // Hybrid occlusion query draw (RTV + shader counting for Total).
+    // Selects the counting depth-only pixel shader when there's no guest PS.
+    uint32_t zpd_total : 1;  // 29
+    // Survey draw for conditional rendering (ROV + occlusion_query_viz).
+    // Selects the depth-only pixel shader. Surveys don't have a guest PS.
+    uint32_t viz_survey : 1;  // 30
 
     uint32_t stencil_write_mask : 8;                   // 8
     xenos::StencilOp stencil_front_fail_op : 3;        // 11
@@ -237,7 +250,7 @@ class PipelineCache {
     PipelineRenderTarget render_targets[xenos::kMaxColorRenderTargets];
 
     inline bool operator==(const PipelineDescription& other) const;
-    static constexpr uint32_t kVersion = 0x20260716;
+    static constexpr uint32_t kVersion = 0x20260920;
   });
 
   XEPACKEDSTRUCT(PipelineStoredDescription, {
@@ -309,6 +322,7 @@ class PipelineCache {
       const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask, bool depth_bias_in_pixel_shader,
+      bool zpd_total, bool viz_survey,
       uint32_t bound_depth_and_color_render_target_bits,
       const uint32_t* bound_depth_and_color_render_target_formats,
       PipelineRuntimeDescription& runtime_description_out,
@@ -330,6 +344,7 @@ class PipelineCache {
   const RegisterFile& register_file_;
   const D3D12RenderTargetCache& render_target_cache_;
   bool bindless_resources_used_;
+  bool zpd_hybrid_supported_;
 
   // Temporary storage for AnalyzeUcode calls on the processor thread.
   StringBuffer ucode_disasm_buffer_;
@@ -375,8 +390,14 @@ class PipelineCache {
       geometry_shaders_;
 
   // Empty depth-only pixel shader for writing to depth buffer via ROV when no
-  // Xenos pixel shader provided.
+  // Xenos pixel shader provided, and for keeping RTV draws that write nothing
+  // rasterized for occlusion queries.
   std::vector<uint8_t> depth_only_pixel_shader_;
+
+  std::vector<uint8_t> zpd_total_depth_only_pixel_shader_;
+  std::vector<uint8_t> zpd_total_float24_truncate_pixel_shader_;
+  std::vector<uint8_t> zpd_total_float24_round_pixel_shader_;
+  std::vector<uint8_t> viz_survey_depth_only_pixel_shader_;
 
   struct Pipeline {
     // nullptr if creation has failed or still pending.

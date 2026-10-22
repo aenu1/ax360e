@@ -29,8 +29,8 @@ namespace texture_util {
 // tiling.
 
 // Extracts the size from the fetch constant, and also cleans up addresses and
-// mip range based on real presence of the base level and mips. Returns 6 faces
-// for cube textures.
+// mip range based on the base and mip addresses and guest mip levels. Returns 6
+// faces for cube textures.
 void GetSubresourcesFromFetchConstant(
     const xenos::xe_gpu_texture_fetch_t& fetch, uint32_t* width_minus_1_out,
     uint32_t* height_minus_1_out, uint32_t* depth_or_array_size_minus_1_out,
@@ -105,8 +105,8 @@ bool GetPackedMipOffset(uint32_t width, uint32_t height, uint32_t depth,
 // 545407E0 (8x8 linear DXT1 - pairs of orange lights in the bottom of gambling
 // machines).
 //
-// Linear texture rows are aligned to 256 bytes, for both the base and the mips
-// (for the base, Direct3D 9 writes an already 256-byte-aligned pitch to the
+// Linear texture rows are aligned to max(256 / block size, 32), for both the
+// base and the mips (for the base, Direct3D 9 writes the aligned pitch to the
 // fetch constant).
 //
 // However, all the 32x32x4 padding, being just padding, is not necessarily
@@ -288,9 +288,9 @@ void GetTextureTotalSize(xenos::DataDimension dimension,
 // bytes_per_block_log2 is log2_floor according to how Direct3D 9 calculates it,
 // but k_32_32_32 textures are never tiled anyway likely.
 
-// Because (0, 0, 0) within each 32x32x4-block tile is stored in memory first,
-// and the tiled address grows monotonically with Z/4, then Y/32, then X/32
-// blocks.
+// The tiled address grows monotonically between tiles with Z/4, then Y/32,
+// then X/32 blocks. Within 3D tiles, the bank swap in odd Z/4 groups makes
+// Y=8 the first stored row, not Y=0.
 inline uint32_t GetTiledAddressLowerBound2D(uint32_t left, uint32_t top,
                                             uint32_t pitch_aligned,
                                             uint32_t bytes_per_block_log2) {
@@ -304,10 +304,14 @@ inline uint64_t GetTiledAddressLowerBound3D(uint32_t left, uint32_t top,
                                             uint32_t pitch_aligned,
                                             uint32_t height_aligned,
                                             uint32_t bytes_per_block_log2) {
+  uint32_t front_aligned = front & ~(xenos::kTextureTileDepth - 1);
+  uint32_t top_aligned = top & ~(xenos::kTextureTileWidthHeight - 1);
+  if (front_aligned & xenos::kTextureTileDepth) {
+    top_aligned += 8;
+  }
   return uint64_t(texture_address::Tiled3D(
       int32_t(left & ~(xenos::kTextureTileWidthHeight - 1)),
-      int32_t(top & ~(xenos::kTextureTileWidthHeight - 1)),
-      int32_t(front & ~(xenos::kTextureTileDepth)), pitch_aligned,
+      int32_t(top_aligned), int32_t(front_aligned), pitch_aligned,
       height_aligned, bytes_per_block_log2));
 }
 // Supporting the right > pitch and bottom > height (in tiles) cases also, for

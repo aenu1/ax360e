@@ -204,8 +204,9 @@ dword_result_t keXamBuildResourceLocator(uint64_t module,
     path = fmt::format(u"section://{:X},{}#{}", (uint32_t)module, container,
                        resource);
   }
+  const uint32_t char_count = buffer_count / sizeof(char16_t);
   xe::string_util::copy_and_swap_truncating(buffer_ptr.as<char16_t*>(), path,
-                                            buffer_count);
+                                            char_count);
   return 0;
 }
 
@@ -278,7 +279,20 @@ dword_result_t XamGetCachedTitleName_entry(dword_t title_id,
     return X_ERROR_INVALID_PARAMETER;
   }
 
-  assert_false(title_id != kernel_state()->title_id());
+  if (title_id != kernel_state()->title_id()) {
+    if (const auto profile = kernel_state()->xam_state()->GetUserProfile(0u);
+        profile) {
+      const auto title =
+          kernel_state()->xam_state()->user_tracker()->GetUserTitleInfo(
+              profile->xuid(), title_id);
+      if (title) {
+        xe::string_util::copy_and_swap_truncating(
+            title_name_ptr, title->title_name, title->title_name.size() + 1);
+        *title_name_length_ptr = title->title_name.size() + 1;
+        return X_ERROR_SUCCESS;
+      }
+    }
+  }
 
   std::u16string title_name = xe::to_utf16(
       kernel_state()->emulator()->game_info_database()->GetTitleName());
@@ -291,6 +305,50 @@ dword_result_t XamGetCachedTitleName_entry(dword_t title_id,
   return X_ERROR_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamGetCachedTitleName, kNone, kImplemented);
+
+dword_result_t XamReadString_entry(dword_t title_id, qword_t id,
+                                   dword_t user_index, dword_t string_out_ptr,
+                                   lpdword_t string_size_ptr,
+                                   pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (!string_out_ptr || id == 0xFFFF) {
+    return X_E_INVALIDARG;
+  }
+
+  if (!string_size_ptr) {
+    return X_E_INSUFFICIENT_BUFFER;
+  }
+
+  auto run = [=](uint32_t& extended_error, uint32_t& length) -> X_RESULT {
+    X_STATUS result = X_ERROR_SUCCESS;
+
+    // 584111F7 reads leaderboard strings
+    const std::u16string localized_string = xe::to_utf16(
+        kernel_state()->emulator()->game_info_database()->GetLocalizedString(
+            static_cast<uint32_t>(id)));
+
+    const size_t str_buffer_size = *string_size_ptr;
+
+    char16_t* str_buffer =
+        kernel_memory()->TranslateVirtual<char16_t*>(string_out_ptr);
+
+    xe::string_util::copy_and_swap_truncating(str_buffer, localized_string,
+                                              str_buffer_size);
+
+    extended_error = X_HRESULT_FROM_WIN32(result);
+    length = 0;
+
+    return result;
+  };
+
+  if (!overlapped_ptr) {
+    uint32_t extended_error, length = 0;
+    return run(extended_error, length);
+  }
+
+  kernel_state()->CompleteOverlappedDeferredEx(run, overlapped_ptr);
+  return X_ERROR_IO_PENDING;
+}
+DECLARE_XAM_EXPORT1(XamReadString, kNone, kImplemented);
 
 dword_result_t XamXStudioRequest_entry(dword_t unk1, lpdword_t unk2) {
   // uses xstudio.xex function with an ordinal of 1
@@ -335,6 +393,23 @@ dword_result_t XamIsCurrentTitleDash_entry(const ppc_context_t& ctx) {
 }
 DECLARE_XAM_EXPORT1(XamIsCurrentTitleDash, kNone, kImplemented);
 
+dword_result_t XamSetDashContext_entry(dword_t value,
+                                       const ppc_context_t& ctx) {
+  // checks XexCheckExecutablePrivilege(8) but we don't care
+  if (value != ctx->kernel_state->dash_context_) {
+    ctx->kernel_state->dash_context_ = value;
+    kernel_state()->BroadcastNotification(
+        kXNotificationSystemDashContextChanged, 0);
+  }
+  return 0;
+}
+DECLARE_XAM_EXPORT1(XamSetDashContext, kNone, kImplemented);
+
+dword_result_t XamGetDashContext_entry(const ppc_context_t& ctx) {
+  return ctx->kernel_state->dash_context_;
+}
+DECLARE_XAM_EXPORT1(XamGetDashContext, kNone, kImplemented);
+
 dword_result_t XamGetExecutionId_entry(lpdword_t info_ptr) {
   auto module = kernel_state()->GetExecutableModule();
   assert_not_null(module);
@@ -351,6 +426,15 @@ dword_result_t XamGetExecutionId_entry(lpdword_t info_ptr) {
   return X_STATUS_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamGetExecutionId, kNone, kImplemented);
+
+void XamLoaderRegisterLaunchRequestCallback_entry(dword_t callback) {
+  auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
+  if (xam) {
+    xam->SetLaunchCallback(callback);
+  }
+}
+DECLARE_XAM_EXPORT1(XamLoaderRegisterLaunchRequestCallback, kNone,
+                    kImplemented);
 
 dword_result_t XamLoaderSetLaunchData_entry(lpvoid_t data, dword_t size) {
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
@@ -944,7 +1028,29 @@ DECLARE_XAM_EXPORT1(XamSetDvrStorage, kNone, kStub);
 dword_result_t XamLookupCommonStringByIndex_entry(dword_t string_index) {
   return 0;
 }
-DECLARE_XAM_EXPORT1(XamLookupCommonStringByIndex, kNone, kImplemented);
+DECLARE_XAM_EXPORT1(XamLookupCommonStringByIndex, kNone, kStub);
+
+dword_result_t XamLogLocalizationEtx_entry(dword_t error_code, dword_t unk) {
+  if (error_code == 0x80300034) {
+    // uses second unk for some function
+    return X_ERROR_SUCCESS;
+  } else if (error_code == 0x80300035) {
+    // uses second unk for some function
+    return X_ERROR_SUCCESS;
+  }
+  return X_E_NOT_IMPLEMENTED;
+}
+DECLARE_XAM_EXPORT1(XamLogLocalizationEtx, kNone, kStub);
+
+dword_result_t XamUpdateGetBaseSystemVersion_entry() {
+  return kBaseKernelBuildVersion;
+}
+DECLARE_XAM_EXPORT1(XamUpdateGetBaseSystemVersion, kNone, kStub);
+
+dword_result_t XamUpdateGetCurrentSystemVersion_entry() {
+  return kBaseKernelBuildVersion;
+}
+DECLARE_XAM_EXPORT1(XamUpdateGetCurrentSystemVersion, kNone, kStub);
 
 }  // namespace xam
 }  // namespace kernel

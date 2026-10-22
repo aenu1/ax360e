@@ -162,11 +162,10 @@ TEST_CASE("PhysicalHeap vE0000000 alignment", "[memory]") {
   }
 
   SECTION("alloc with alignment larger than page_size is rejected") {
-    // vE0000000 has a 0x1000 physical translation offset, so a 64KB
-    // alignment request can't produce a 64KB-aligned guest address.
-    // PhysicalHeap::Alloc forces top-down, which here lands one stride
-    // past the end of the child heap and BaseHeap::AllocFixed rejects
-    // it as out of range.
+    // vE0000000 has a 0x1000 physical translation offset, so the host
+    // alignment check in PhysicalHeap::Alloc, which tests
+    // (address + host_address_offset_) % alignment, cannot be satisfied for
+    // an alignment above the page size where that offset is 0.
     uint32_t alignment = 0x10000;  // 64KB
     uint32_t addr = 0;
     bool ok = heap.Alloc(0x10000, alignment, kMemoryAllocationReserve,
@@ -207,6 +206,30 @@ TEST_CASE("PhysicalHeap vE0000000 AllocRange alignment", "[memory]") {
     REQUIRE(ok);
     REQUIRE(addr >= 0xE0000000);
   }
+}
+
+TEST_CASE("PhysicalHeap::AllocRange stays within the requested range",
+          "[memory]") {
+  VirtualHeap parent;
+  parent.Initialize(nullptr, nullptr, HeapType::kGuestPhysical, 0x00000000,
+                    0x20000000, 4096);
+
+  PhysicalHeap heap;
+  heap.Initialize(nullptr, nullptr, HeapType::kGuestPhysical, 0xA0000000,
+                  0x20000000, 64 * 1024, &parent);
+
+  // A ceiling that is not a multiple of the alignment must not be rounded up
+  // to the next one, which would place the allocation above it.
+  const uint32_t size = 0x10000;
+  const uint32_t alignment = 0x10000;
+  const uint32_t high_address = 0xA0FF8000;
+  uint32_t addr = 0;
+  bool ok = heap.AllocRange(0xA0000000, high_address, size, alignment,
+                            kMemoryAllocationReserve, kMemoryProtectRead, true,
+                            &addr);
+  REQUIRE(ok);
+  REQUIRE(heap.GetPhysicalAddress(addr) % alignment == 0);
+  REQUIRE(addr + size - 1 <= high_address);
 }
 
 }  // namespace test

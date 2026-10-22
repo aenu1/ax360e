@@ -12,6 +12,7 @@
 #include "xenia/base/platform_win.h"
 #elif XE_PLATFORM_LINUX == 1
 #include <linux/futex.h>
+#include <pthread.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #endif
@@ -88,13 +89,21 @@ inline int futex_wake(std::atomic<uint32_t>* addr, int count) {
                  0);
 }
 
-inline pid_t gettid() { return static_cast<pid_t>(syscall(SYS_gettid)); }
+// Only compared for equality, to detect the owner re-entering.
+inline uint64_t xe_current_thread_id() {
+#if XE_PLATFORM_ANDROID||XE_PLATFORM_AX360E
+  // bionic's pthread_t is an integer (long), reinterpret_cast is not allowed.
+  return static_cast<uint64_t>(pthread_self());
+#else
+  return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(pthread_self()));
+#endif
+}
 
 }  // namespace
 
 // xe_global_mutex implementation (recursive)
 void xe_global_mutex::lock() {
-  pid_t self = gettid();
+  uint64_t self = xe_current_thread_id();
 
   // Fast path: check if we already own it (recursive lock)
   if (owner_.load(std::memory_order_relaxed) == self) {
@@ -115,7 +124,7 @@ void xe_global_mutex::lock() {
 }
 
 void xe_global_mutex::lock_slow() {
-  pid_t self = gettid();
+  uint64_t self = xe_current_thread_id();
 
   // Spin phase
   for (int i = 0; i < XE_LINUX_MUTEX_SPINCOUNT; ++i) {
@@ -170,7 +179,7 @@ void xe_global_mutex::unlock() {
 }
 
 bool xe_global_mutex::try_lock() {
-  pid_t self = gettid();
+  uint64_t self = xe_current_thread_id();
 
   // Check for recursive lock
   if (owner_.load(std::memory_order_relaxed) == self) {

@@ -16,11 +16,16 @@
 #include <map>
 
 #include "xenia/vfs/devices/stfs_xbox.h"
+#include "xenia/kernel/xam/xcontent/xcontent.h"
 #include "xenia/vfs/device.h"
 #include "document_file.h"
 
 namespace xe {
     namespace vfs {
+
+        using kernel::xam::XContentContainerHeader;
+        using kernel::xam::XContentPackageType;
+        using kernel::xam::XContentVolumeType;
 
         class SAF_StfsEntry;
 

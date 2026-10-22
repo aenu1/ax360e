@@ -34,7 +34,7 @@ DEFINE_bool(
     store_shaders, true,
     "Store shaders persistently and load them when loading games to avoid "
     "runtime spikes and freezes when playing the game not for the first time.",
-    "GPU");
+    "GPU.Debug");
 
 namespace xe {
 namespace gpu {
@@ -129,6 +129,13 @@ X_STATUS GraphicsSystem::Setup(cpu::Processor* processor,
                                                     normalized_framerate_limit))
                     : 1.0;
             uint64_t last_frame_time = Clock::QueryGuestTickCount();
+            // Deadline the Linux branch paces to, and the most lateness it
+            // will try to make up before giving the missed beats up.
+            using steady_time_point = std::chrono::steady_clock::time_point;
+            steady_time_point next_vblank_deadline{};
+            constexpr auto kMaxVblankCatchUp = std::chrono::seconds(1);
+            (void)next_vblank_deadline;
+            (void)kMaxVblankCatchUp;
     // Sleep for 90% of the vblank duration on Windows, spin for 10%
     // Linux uses full sleep duration due to scheduler quantum issues
 #if XE_PLATFORM_WIN32
@@ -185,7 +192,6 @@ X_STATUS GraphicsSystem::Setup(cpu::Processor* processor,
               }
 #endif
 #if XE_PLATFORM_LINUX
-              // Linux: Use simplified timing logic to avoid oversleeping
               MarkVblank();
 
               if (cvars::vsync || normalized_framerate_limit > 0) {
@@ -194,7 +200,40 @@ X_STATUS GraphicsSystem::Setup(cpu::Processor* processor,
                 if (!cvars::vsync && normalized_framerate_limit > 0) {
                   sleep_duration_ns = 1000000000 / normalized_framerate_limit;
                 }
-                threading::NanoSleep(sleep_duration_ns);
+                // Sleeping a flat period from wherever the thread woke makes
+                // the real period that period plus the interrupt dispatch
+                // plus the scheduler's wake-up latency, and none of it is
+                // ever made up. Audio drains at the device's own fixed rate,
+                // so a beat the guest does not get is picture time lost
+                // against the sound for good. Pace to a deadline instead and
+                // deliver the missed beats.
+                const auto period = std::chrono::nanoseconds(std::max<int64_t>(
+                    1, static_cast<int64_t>(
+                           static_cast<double>(sleep_duration_ns) /
+                           Clock::guest_time_scalar())));
+                auto now = std::chrono::steady_clock::now();
+                // A pause is not missed beats: start again from now after
+                // one.
+                if (vblank_deadline_reset_.exchange(false) ||
+                    next_vblank_deadline == steady_time_point()) {
+                  next_vblank_deadline = now;
+                }
+                next_vblank_deadline += period;
+                if (next_vblank_deadline > now) {
+                  threading::NanoSleep(
+                      std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          next_vblank_deadline - now)
+                          .count());
+                } else if (now - next_vblank_deadline > kMaxVblankCatchUp) {
+                  // Further behind than catching up could hide: give the
+                  // missed beats up rather than running the guest fast
+                  // through what was a real freeze.
+                  next_vblank_deadline = now + period;
+                  threading::NanoSleep(period.count());
+                }
+                // Otherwise loop straight round without sleeping, delivering
+                // the missed beats until the guest has had as many as real
+                // time says it should.
               } else {
                 xe::threading::Sleep(std::chrono::milliseconds(1));
               }
@@ -207,8 +246,18 @@ X_STATUS GraphicsSystem::Setup(cpu::Processor* processor,
   frame_limiter_worker_thread_->set_can_debugger_suspend(true);
   frame_limiter_worker_thread_->set_name("GPU Frame limiter");
   frame_limiter_worker_thread_->Create();
+  // The Windows branch spins for part of each period, which is what the
+  // lowest priority is for. The Linux branch only sleeps, so there it buys
+  // nothing and costs wake-up latency: kLowest maps to nice 15 against nice 0
+  // for every other thread in the process, and any other busy program then
+  // delays the guest's vblanks.
+#if XE_PLATFORM_WIN32
   frame_limiter_worker_thread_->thread()->set_priority(
       threading::ThreadPriority::kLowest);
+#else
+  frame_limiter_worker_thread_->thread()->set_priority(
+      threading::ThreadPriority::kNormal);
+#endif
   if (cvars::trace_gpu_stream) {
     BeginTracing();
   }
@@ -281,6 +330,8 @@ uint32_t GraphicsSystem::ReadRegister(uint32_t addr) {
       return 0x08100748;
     case 0x0F01:  // RB_BC_CONTROL
       return 0x0000200E;
+    case 0x0F2D:  // RB_HSIO_INTERFACE_ALIGNER_VALUE
+      return 0x00BBBBBB;
     case 0x1951:  // interrupt status
       return 1;   // vblank
     case 0x1961:  // AVIVO_D1MODE_VIEWPORT_SIZE
@@ -303,6 +354,10 @@ void GraphicsSystem::WriteRegister(uint32_t addr, uint32_t value) {
   switch (r) {
     case 0x01C5:  // CP_RB_WPTR
       command_processor_->UpdateWritePointer(value);
+      break;
+    case 0x0F01:  // RB_BC_CONTROL
+      break;
+    case 0x0F2D:  // RB_HSIO_INTERFACE_ALIGNER_VALUE
       break;
     case 0x1844:  // AVIVO_D1GRPH_PRIMARY_SURFACE_ADDRESS
       break;
@@ -407,6 +462,7 @@ void GraphicsSystem::Pause() {
 
 void GraphicsSystem::Resume() {
   paused_ = false;
+  vblank_deadline_reset_ = true;
 
   command_processor_->Resume();
 }

@@ -40,17 +40,17 @@ DEFINE_uint32(
     texture_cache_memory_limit_soft, 384,
     "Maximum host texture memory usage (in megabytes) above which old textures "
     "will be destroyed.",
-    "GPU");
+    "GPU.Debug");
 DEFINE_uint32(
     texture_cache_memory_limit_soft_lifetime, 30,
     "Seconds a texture should be unused to be considered old enough to be "
     "deleted if texture memory usage exceeds texture_cache_memory_limit_soft.",
-    "GPU");
+    "GPU.Debug");
 DEFINE_uint32(
     texture_cache_memory_limit_hard, 768,
     "Maximum host texture memory usage (in megabytes) above which textures "
     "will be destroyed as soon as possible.",
-    "GPU");
+    "GPU.Debug");
 DEFINE_uint32(
     texture_cache_memory_limit_render_to_texture, 24,
     "Part of the host texture memory budget (in megabytes) that will be scaled "
@@ -60,11 +60,11 @@ DEFINE_uint32(
     "render-to-texture (resolve) targets and 384 - 24 = 360 MB of regular "
     "textures - so with 2x2 resolution scaling, the soft limit will be 360 + "
     "96 MB, and with 3x3, it will be 360 + 216 MB.",
-    "GPU");
+    "GPU.Debug");
 DEFINE_bool(tiled_shared_memory, true,
             "Enable tiled/sparse resources for efficient large address space "
             "support. Disable for graphics debugger compatibility.",
-            "GPU");
+            "GPU.Debug");
 
 namespace xe {
 namespace gpu {
@@ -364,8 +364,8 @@ void TextureCache::RequestTextures(uint32_t used_texture_mask) {
     uint32_t old_host_swizzle = binding.host_swizzle;
     binding.host_swizzle =
         GuestToHostSwizzle(fetch.swizzle, GetHostFormatSwizzle(binding.key));
-    binding.integer_scale_bits = GetIntegerScaleBits(
-        fetch.format, fetch.num_format, fetch.swizzle, binding.swizzled_signs);
+    binding.integer_scale_bits =
+        GetIntegerScaleBits(fetch, binding.swizzled_signs);
 
     // Check if need to load the unsigned and the signed versions of the texture
     // (if the format is emulated with different host bit representations for
@@ -685,44 +685,59 @@ TextureCache::Texture* TextureCache::FindOrCreateTexture(TextureKey key) {
   return texture;
 }
 
-// Packs the integer scale the fetch shader reads from the system constant to
-// undo the host sampler's normalization - the guest wants e.g. [0, 255], not
-// [0, 1]. 6 bits per output component: bits 0:3 = width - 1, bit 4 = signed,
-// bit 5 = unsigned-biased. The scale lands after swizzling, so each output lane
-// walks the guest swizzle back to its source component's width; constant (0/1)
-// lanes, gamma, and non-fixed formats have nothing to rescale and stay 0.
-uint32_t TextureCache::GetIntegerScaleBits(xenos::TextureFormat guest_format,
-                                           uint32_t num_format,
-                                           uint32_t guest_swizzle,
-                                           uint8_t swizzled_signs) {
-  // num_format 0 is the normalized/fractional fetch - nothing to rescale.
-  const FormatInfo& format_info = *FormatInfo::Get(guest_format);
-  uint32_t scale_bits = 0;
+uint32_t TextureCache::GetIntegerScaleBits(
+    const xenos::xe_gpu_texture_fetch_t& fetch, uint8_t swizzled_signs) {
+  const FormatInfo& format_info = *FormatInfo::Get(fetch.format);
+  bool point_sampled = fetch.mag_filter == xenos::TextureFilter::kPoint &&
+                       fetch.min_filter == xenos::TextureFilter::kPoint &&
+                       (fetch.mip_filter == xenos::TextureFilter::kPoint ||
+                        fetch.mip_filter == xenos::TextureFilter::kBaseMap) &&
+                       fetch.aniso_filter == xenos::AnisoFilter::kDisabled;
+  uint32_t scale_bits = point_sampled ? UINT32_C(1) << 26 : 0;
 
-  if (!num_format || !format_info.fixed) {
-    return 0;
+  if (!format_info.fixed) {
+    return scale_bits;
+  }
+
+  if (!fetch.num_format) {
+    scale_bits |= UINT32_C(1) << 24;
+  }
+
+  uint32_t last_stored_component = 0;
+  for (uint32_t i = 1; i < 4; ++i) {
+    if (format_info.component_bits[i]) {
+      last_stored_component = i;
+    }
   }
 
   for (uint32_t i = 0; i < 4; ++i) {
-    uint32_t source_component = (guest_swizzle >> (i * 3)) & 0b111;
+    uint32_t source_component = (fetch.swizzle >> (i * 3)) & 0b111;
     if (source_component >= xenos::XE_GPU_TEXTURE_SWIZZLE_0) {
       continue;
     }
+    source_component = std::min(source_component, last_stored_component);
 
     xenos::TextureSign sign =
         xenos::TextureSign((swizzled_signs >> (i * 2)) & 0b11);
 
     uint8_t width = format_info.component_bits[source_component];
-    if (!width || width > 16 || sign == xenos::TextureSign::kGamma) {
+    if (!width || width > 16) {
       continue;
     }
 
-    uint32_t component_scale = uint32_t(width - 1);
-    if (sign == xenos::TextureSign::kSigned) {
-      component_scale |= UINT32_C(1) << 4;
-      // Unsigned-biased: halve the scaled value and apply an extra offset.
-    } else if (sign == xenos::TextureSign::kUnsignedBiased) {
-      component_scale |= UINT32_C(1) << 5;
+    bool carries_width = true;
+    if (sign == xenos::TextureSign::kGamma) {
+      if (fetch.num_format) {
+        continue;
+      }
+      carries_width = false;
+    } else if (!fetch.num_format && sign == xenos::TextureSign::kUnsigned) {
+      carries_width = point_sampled && width >= 4 && width <= 7;
+    }
+
+    uint32_t component_scale = uint32_t(sign) << 4;
+    if (carries_width) {
+      component_scale |= uint32_t(width - 1);
     }
 
     scale_bits |= component_scale << (i * 6);
@@ -987,8 +1002,12 @@ void TextureCache::BindingInfoFromFetchConstant(
   texture_util::GetSubresourcesFromFetchConstant(
       fetch, &width_minus_1, &height_minus_1, &depth_or_array_size_minus_1,
       &base_page, &mip_page, nullptr, &mip_max_level);
-  if (base_page == 0 && mip_page == 0) {
-    // No texture data at all.
+  if (base_page == 0 && mip_page == 0 &&
+      (fetch.swizzle & 0b110110110110) != 0b100100100100) {
+    // No texture data at all. Any header taking every swizzle component from
+    // literal 0s or 1s may still be valid. 4D530919 binds one as the dummy
+    // alpha plane of Bink movies. Such examples get a texture with their
+    // dimensions for LOD queries. Zero extents skip the upload and watches.
     return;
   }
   uint32_t pitch = fetch.pitch;
@@ -1001,6 +1020,7 @@ void TextureCache::BindingInfoFromFetchConstant(
       uint32_t total_width = width_minus_1 + 1;
       uint32_t row_width = xenos::kTexture2DCubeMaxWidthHeight;
       uint32_t num_rows = (total_width + row_width - 1) / row_width;
+      num_rows = std::min(num_rows, xenos::kTexture1DWideMaxRows);
       width_minus_1 = row_width - 1;
       height_minus_1 = num_rows - 1;
       // Disable mipmaps for wide 1D textures. The shader's coordinate remapping

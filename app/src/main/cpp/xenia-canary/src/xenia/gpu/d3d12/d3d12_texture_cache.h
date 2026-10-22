@@ -63,7 +63,7 @@ class D3D12TextureCache final : public TextureCache {
       // clamp mode).
       uint32_t force_bc_w_to_max : 1;  // 23
       // Maximum mip level is in the texture resource itself, but mip_base_map
-      // can be used to limit fetching to mip_min_level.
+      // limits fetching to mip_min_level (level 0 when the base is available).
     };
 
     SamplerParameters() : value(0) { static_assert_size(*this, sizeof(value)); }
@@ -820,6 +820,10 @@ class D3D12TextureCache final : public TextureCache {
 
   D3D12CommandProcessor& command_processor_;
   bool bindless_resources_used_;
+
+  // Bits per format, for checking if the host format should be point-filtered.
+  uint64_t host_filterable_unsigned_ = 0;
+  uint64_t host_filterable_signed_ = 0;
 
   Microsoft::WRL::ComPtr<ID3D12RootSignature> load_root_signature_;
   std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kLoadShaderCount>

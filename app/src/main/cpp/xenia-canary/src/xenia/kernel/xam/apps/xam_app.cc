@@ -11,6 +11,7 @@
 
 #include "xenia/base/logging.h"
 #include "xenia/kernel/kernel_state.h"
+#include "xenia/kernel/nui.h"
 #include "xenia/kernel/xam/xam_content_device.h"
 #include "xenia/kernel/xenumerator.h"
 
@@ -63,34 +64,18 @@ X_HRESULT XamApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       }
 
       assert_true(enum_struct->magic == kXObjSignature);
-
-      XCONTENT_CROSS_TITLE_DATA cross_title_data = {};
-      uint8_t* cross_title_data_ptr =
-          reinterpret_cast<uint8_t*>(&cross_title_data);
-
-      uint32_t item_count = 0;
-      X_RESULT result = e->WriteItems(cross_title_data_ptr,
-                                      data_ptr->buffer_size, &item_count);
+      assert_true(data_ptr->buffer_size == sizeof(XCONTENT_DATA_INTERNAL));
 
       XCONTENT_DATA_INTERNAL* content_data_ptr =
           memory_->TranslateVirtual<XCONTENT_DATA_INTERNAL*>(
               data_ptr->buffer_ptr);
 
-      assert_true(data_ptr->buffer_size == sizeof(XCONTENT_DATA_INTERNAL));
-
+      uint32_t item_count = 0;
       std::memset(content_data_ptr, 0, data_ptr->buffer_size);
 
-      if (!result) {
-        content_data_ptr->device_id = cross_title_data.content_data.device_id;
-        content_data_ptr->content_type =
-            cross_title_data.content_data.content_type;
-        content_data_ptr->set_display_name(
-            cross_title_data.content_data.display_name());
-        content_data_ptr->set_file_name(
-            cross_title_data.content_data.file_name());
-        content_data_ptr->padding[0] = content_data_ptr->padding[1] = 0;
-        content_data_ptr->title_id = cross_title_data.title_id;
-      }
+      X_RESULT result =
+          e->WriteItems(reinterpret_cast<uint8_t*>(content_data_ptr),
+                        data_ptr->buffer_size, &item_count);
 
       result = X_HRESULT_FROM_WIN32(result);
 
@@ -166,18 +151,63 @@ X_HRESULT XamApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
              data->deployment_type_ptr.get(), data->overlapped_ptr.get());
       return X_E_SUCCESS;
     }
+    case 0x0002B001: {
+      // Games used in:
+      // 42560819, 373307D9
+      uint32_t ms_delay = xe::load_and_swap<uint32_t>(buffer);
+
+      XELOGD("XNuiDelayUI unimplemented({:08X})", ms_delay);
+      return X_E_SUCCESS;
+    }
     case 0x0002B003: {
       // Games used in:
       // 4D5309C9
       // It only receives buffer
-      struct {
-        xe::be<uint64_t> unk1;
-        xe::be<uint64_t> unk2;
-        xe::be<uint64_t> unk3;
-      }* args = memory_->TranslateVirtual<decltype(args)>(buffer_ptr);
+      X_NUI_TITLE_INITIALIZE_DATA* args =
+          reinterpret_cast<X_NUI_TITLE_INITIALIZE_DATA*>(buffer);
+      XELOGD("XNuiTitleInitialize({:016X}, {:016X}, flags: 0x{:08X}), Stubbed",
+             args->xam_version.get(), args->xtl_version.get(),
+             args->flags.get());
+      X_HRESULT result = X_E_FAIL;
 
-      XELOGD("XamUnk2B003({:016X}, {:016X}, {:016X}), unimplemented",
-             args->unk1.get(), args->unk2.get(), args->unk3.get());
+      if (args->xam_version == 5) {
+        kernel_state_->nui()->SetNUIVersion(uint64_t(args->xam_version), 0);
+        kernel_state_->nui()->SetNUIVersion(uint64_t(args->xtl_version), 1);
+        kernel_state_->nui()->SetInitFlags(uint32_t(args->flags));
+        if ((args->flags & 0x80000000) == 0) {
+          XELOGD("Todo: write data to two pointers");
+          result = X_E_SUCCESS;
+        }
+      }
+      if ((args->flags & 0x40000000) == 0) {
+        XELOGD(
+            "Todo: call XamNuiGetDeviceStatus and if status does not have flag "
+            "1 set but has flags 4 and 0x40 call XamShowNuiTroubleshooterUI");
+      }
+
+      return result;
+    }
+    case 0x0002B004: {
+      // Games used in:
+      // Emerald Dashboard
+      // Called with no buffer
+
+      kernel_state_->nui()->SetNUIVersion(0, 0);
+      kernel_state_->nui()->SetNUIVersion(0, 1);
+      kernel_state_->nui()->SetInitFlags(0);
+      kernel_state_->nui()->SetTiltCallback(0);
+
+      XELOGD("XNuiTitleShutdown stubbed");
+      return X_E_SUCCESS;
+    }
+    case 0x0002C009: {
+      // Registers (non-zero) or removes (zero) a Kinect identity callback.
+      // TODO(knuckleslee): Invoke the callback for identity notifications.
+      if (!buffer_ptr) {
+        return X_E_INVALIDARG;
+      }
+      XELOGD("XamApp: Kinect identity callback {:08X}",
+             xe::load_and_swap<uint32_t>(buffer));
       return X_E_SUCCESS;
     }
     // Causes dashboard to correctly process language/region change. It does not

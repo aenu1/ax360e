@@ -395,6 +395,39 @@ dword_result_t XamGetOnlineLanguageAndCountryString_entry(
 DECLARE_XAM_EXPORT1(XamGetOnlineLanguageAndCountryString, kLocale,
                     kImplemented);
 
+dword_result_t XamProfileGetLiveLegalLocale_entry(qword_t xuid,
+                                                  dword_t buffer_length,
+                                                  lpu16string_t buffer) {
+  const auto user = kernel_state()->xam_state()->GetUserProfileLive(xuid);
+
+  const uint8_t country_id =
+      user ? user->GetCountry()
+           : kernel_state()->xconfig()->ReadSetting<uint8_t>(
+                 XCONFIG_USER_CATEGORY, XCONFIG_USER_COUNTRY);
+
+  const uint32_t desired_language =
+      user ? user->GetLanguage()
+           : kernel_state()->xconfig()->ReadSetting<uint32_t>(
+                 XCONFIG_USER_CATEGORY,
+                 XCONFIG_USER_CATEGORY_ENTRIES::XCONFIG_USER_LANGUAGE);
+
+  return XamGetOnlineLanguageAndCountryString_entry(
+      desired_language, country_id, buffer_length, buffer);
+}
+DECLARE_XAM_EXPORT1(XamProfileGetLiveLegalLocale, kLocale, kImplemented);
+
+dword_result_t XapipGetLocale_entry(dword_t buffer_length,
+                                    lpstring_t buffer_ptr) {
+  char16_t buffer[7];
+  auto result = XamProfileGetLiveLegalLocale_entry(0, 7, buffer);
+  if (result == X_E_SUCCESS) {
+    string_util::copy_truncating(buffer_ptr, to_utf8(buffer), buffer_length);
+  }
+
+  return result;
+}
+DECLARE_XAM_EXPORT1(XapipGetLocale, kLocale, kImplemented);
+
 dword_result_t XamGetLocaleString_entry(dword_t id, dword_t buffer_length,
                                         lpu16string_t buffer) {
   if (buffer_length >= 0x80000000u) {
@@ -496,7 +529,8 @@ void XFormatDateString(uint64_t filetime, uint32_t buffer_address,
                          static_cast<unsigned>(year_month_day.month()),
                          static_cast<unsigned>(year_month_day.day()),
                          static_cast<int>(year_month_day.year()));
-  xe::string_util::copy_and_swap_truncating(buffer, str, buffer_size);
+  const uint32_t char_count = buffer_size / sizeof(char16_t);
+  xe::string_util::copy_and_swap_truncating(buffer, str, char_count);
 }
 
 void XamFormatDateString_entry(dword_t locale_format, qword_t filetime,
@@ -523,7 +557,8 @@ void XFormatTimeString(uint64_t filetime, uint32_t buffer_address,
 
   auto str = fmt::format(u"{:02d}:{:02d}", time.hours().count(),
                          time.minutes().count());
-  xe::string_util::copy_and_swap_truncating(buffer, str, buffer_size);
+  const uint32_t char_count = buffer_size / sizeof(char16_t);
+  xe::string_util::copy_and_swap_truncating(buffer, str, char_count);
 }
 
 void XamFormatTimeString_entry(dword_t user_index, qword_t filetime,

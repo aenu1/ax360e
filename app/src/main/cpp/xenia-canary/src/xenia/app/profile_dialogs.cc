@@ -197,14 +197,15 @@ void ProfileConfigDialog::OnDraw(ImGuiIO& io) {
     const uint8_t user_index =
         profile_manager->GetUserIndexAssignedToProfile(xuid);
 
-    const auto profile_icon = profile_icon_.find(xuid) != profile_icon_.cend()
-                                  ? profile_icon_[xuid].get()
-                                  : nullptr;
+    const auto profile_icon =
+        profile_icon_.contains(xuid) ? profile_icon_[xuid].get() : nullptr;
 
     auto context_menu_fun = [=, this]() -> bool {
       if (ImGui::BeginPopupContextItem("Profile Menu")) {
         //*selected_xuid = xuid;
         if (user_index == XUserIndexAny) {
+          ImGui::BeginDisabled(!profile_manager->IsAnyProfileSlotFree());
+
           if (ImGui::MenuItem("Login")) {
             profile_manager->Login(xuid);
             if (!profile_manager->GetProfile(xuid)
@@ -235,6 +236,7 @@ void ProfileConfigDialog::OnDraw(ImGuiIO& io) {
             }
             ImGui::EndMenu();
           }
+          ImGui::EndDisabled();
         } else {
           if (ImGui::MenuItem("Logout")) {
             profile_manager->Logout(user_index);

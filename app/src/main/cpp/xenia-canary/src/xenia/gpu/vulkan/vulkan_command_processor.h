@@ -31,11 +31,11 @@
 #include "xenia/gpu/vulkan/vulkan_graphics_system.h"
 #include "xenia/gpu/vulkan/vulkan_pipeline_cache.h"
 #include "xenia/gpu/vulkan/vulkan_primitive_processor.h"
+#include "xenia/gpu/vulkan/vulkan_query_pool.h"
 #include "xenia/gpu/vulkan/vulkan_render_target_cache.h"
 #include "xenia/gpu/vulkan/vulkan_shader.h"
 #include "xenia/gpu/vulkan/vulkan_shared_memory.h"
 #include "xenia/gpu/vulkan/vulkan_texture_cache.h"
-#include "xenia/gpu/vulkan/vulkan_zpd_query_pool.h"
 #include "xenia/gpu/xenos.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/ui/vulkan/linked_type_descriptor_set_allocator.h"
@@ -43,6 +43,7 @@
 #include "xenia/ui/vulkan/vulkan_presenter.h"
 #include "xenia/ui/vulkan/vulkan_provider.h"
 #include "xenia/ui/vulkan/vulkan_upload_buffer_pool.h"
+#include "xenia/ui/vulkan/vulkan_util.h"
 
 namespace xe {
 namespace gpu {
@@ -199,6 +200,7 @@ class VulkanCommandProcessor final : public CommandProcessor {
       uint32_t src_queue_family_index = VK_QUEUE_FAMILY_IGNORED,
       uint32_t dst_queue_family_index = VK_QUEUE_FAMILY_IGNORED,
       bool skip_if_equal = true);
+  // sample_locations has to stay valid until barriers are submitted.
   bool PushImageMemoryBarrier(
       VkImage image, const VkImageSubresourceRange& subresource_range,
       VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
@@ -206,7 +208,8 @@ class VulkanCommandProcessor final : public CommandProcessor {
       VkImageLayout old_layout, VkImageLayout new_layout,
       uint32_t src_queue_family_index = VK_QUEUE_FAMILY_IGNORED,
       uint32_t dst_queue_family_index = VK_QUEUE_FAMILY_IGNORED,
-      bool skip_if_equal = true);
+      bool skip_if_equal = true,
+      const VkSampleLocationsInfoEXT* sample_locations = nullptr);
   // Returns whether any barriers have been submitted - if true is returned, the
   // render pass will also be closed.
   bool SubmitBarriers(bool force_end_render_pass);
@@ -445,52 +448,70 @@ class VulkanCommandProcessor final : public CommandProcessor {
 
   void DestroyScratchBuffer();
 
-  // ZPD occlusion queries backend.
+  // Query segments backend for both ZPD occlusion query reports and
+  // VIZ visibility surveys & conditional rendering.
+  //
   // vkCmdBeginQuery is only valid inside a render pass, so segments split at
-  // pass end and resume at the next pass begin. If BEGIN fires outside a pass,
-  // segment_pending_begin waits for the next. Outside a render pass,
-  // DiscardZPDQuery defers the slot release until the submission completes.
-  // FSI queries clear a dedicated counter with vkCmdFillBuffer, so they may
-  // need to open before a pass begins or split an active pass around the clear.
-  void EnsureZPDQueryResources() override;
-  void ShutdownZPDQueryResources() override {
-    zpd_resolves_in_flight_.clear();
-    zpd_deferred_releases_.clear();
-    zpd_active_query_index_ = UINT32_MAX;
-    zpd_active_query_generation_ = 0;
-    zpd_active_query_is_fsi_ = false;
-    zpd_query_pool_needs_fsi_counter_ = false;
-    zpd_fsi_counter_index_force_update_ = true;
-    if (zpd_host_query_pool_) {
-      zpd_host_query_pool_->Shutdown();
+  // pass end and resume at the next pass begin. If a report or survey starts
+  // outside a pass, the segment waits for the next. FSI queries clear a
+  // dedicated counter with vkCmdFillBuffer, so they may need to open before a
+  // pass begins or split an active pass around the clear.
+  void EnsureQueryResources() override;
+  void ShutdownQueryResources() override {
+    query_resolves_in_flight_.clear();
+    active_query_index_ = UINT32_MAX;
+    active_query_generation_ = 0;
+    active_query_is_fsi_ = false;
+    zpd_fsi_path_ = false;
+    zpd_counter_index_force_update_ = true;
+    if (host_query_pool_) {
+      host_query_pool_->Shutdown();
     }
   }
 
-  bool IsZPDQueryPoolReady() const override;
-  bool CanOpenZPDQuery() const override;
+  bool IsQueryPoolReady() const override;
+  bool CanOpenQuery() const override;
 
-  QueryOpenResult OpenZPDQuery(ReportHandle report_handle,
-                               bool can_close_submission) override;
-  bool CloseZPDQuery(ReportHandle report_handle,
-                     uint64_t& out_submission) override;
-  bool DiscardZPDQuery() override;
+  QueryOpenResult OpenQuery(bool can_close_submission) override;
+  bool CloseQuery(ReportHandle report_handle, const VIZQueryHandle& viz,
+                  uint64_t& out_submission) override;
   void PumpQueryResolves() override;
   bool AwaitQueryResolve(ReportHandle report_handle,
                          uint64_t wait_for_submission) override;
+
+  bool EnsureVIZPredicateBuffer();
+  // Drains the queued predicate copies.
+  void RecordVIZPredicateCopies();
+  // Drains the queued copies if the draw's predicate is among them.
+  VkBuffer BindVIZPredicate(VkDeviceSize& offset_out);
+  void AwaitVIZQueryResolve(uint64_t wait_for_submission) override;
+  void ShutdownVIZQueryResources() {
+    viz_pending_copies_.clear();
+    const ui::vulkan::VulkanDevice* vulkan_device = GetVulkanDevice();
+    const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
+    const VkDevice device = vulkan_device->device();
+    ui::vulkan::util::DestroyAndNullHandle(dfn.vkDestroyBuffer, device,
+                                           viz_predicate_buffer_);
+    ui::vulkan::util::DestroyAndNullHandle(dfn.vkFreeMemory, device,
+                                           viz_predicate_buffer_memory_);
+    viz_predicate_buffer_failed_ = false;
+  }
 
   void UpdateDynamicState(const draw_util::ViewportInfo& viewport_info,
                           bool primitive_polygonal,
                           reg::RB_DEPTHCONTROL normalized_depth_control,
                           uint32_t draw_resolution_scale_x,
                           uint32_t draw_resolution_scale_y,
-                          bool depth_bias_in_pixel_shader);
+                          bool depth_bias_in_pixel_shader,
+                          bool window_offset_in_edram);
   void UpdateSystemConstantValues(
       bool primitive_polygonal,
       const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
       bool shader_32bit_index_dma, const draw_util::ViewportInfo& viewport_info,
       uint32_t used_texture_mask, reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
-      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset);
+      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
+      int32_t window_offset_tiles);
   bool UpdateBindings(const VulkanShader* vertex_shader,
                       const VulkanShader* pixel_shader);
   // Allocates a descriptor set and fills one or two VkWriteDescriptorSet
@@ -525,21 +546,24 @@ class VulkanCommandProcessor final : public CommandProcessor {
     uint32_t query_index = UINT32_MAX;
     uint32_t query_generation = 0;
     uint32_t scale_area = 1;
-    bool uses_fsi_counter = false;
+    bool fsi = false;
+    bool hybrid = false;
     ReportHandle report_handle = kInvalidReportHandle;
+    VIZQueryHandle viz;
   };
-  uint32_t zpd_active_query_index_ = UINT32_MAX;
-  uint32_t zpd_active_query_generation_ = 0;
-  bool zpd_active_query_is_fsi_ = false;
-  bool zpd_query_pool_needs_fsi_counter_ = false;
-  bool zpd_fsi_counter_index_force_update_ = true;
-  std::deque<PendingQueryResolve> zpd_resolves_in_flight_;
-  // Fallback buffer for EDRAM descriptor binding 2.
-  VkBuffer zpd_fsi_counter_sink_buffer_ = VK_NULL_HANDLE;
-  VkDeviceMemory zpd_fsi_counter_sink_buffer_memory_ = VK_NULL_HANDLE;
-  // Currently installed binding 2 buffer.
-  VkBuffer zpd_fsi_counter_descriptor_buffer_ = VK_NULL_HANDLE;
-  VkDeviceSize zpd_fsi_counter_descriptor_range_ = 0;
+  uint32_t active_query_index_ = UINT32_MAX;
+  uint32_t active_query_generation_ = 0;
+  bool active_query_is_fsi_ = false;
+  bool zpd_fsi_path_ = false;
+  bool zpd_hybrid_supported_ = false;
+  bool zpd_counter_index_force_update_ = true;
+  std::deque<PendingQueryResolve> query_resolves_in_flight_;
+  // Fallback buffer for ZPD counter descriptor binding 1.
+  VkBuffer zpd_counter_sink_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory zpd_counter_sink_buffer_memory_ = VK_NULL_HANDLE;
+  // Currently installed binding 1 buffer.
+  VkBuffer zpd_counter_descriptor_buffer_ = VK_NULL_HANDLE;
+  VkDeviceSize zpd_counter_descriptor_range_ = 0;
 
   ui::vulkan::VulkanGPUCompletionTimeline completion_timeline_;
   bool submission_open_ = false;
@@ -636,17 +660,17 @@ class VulkanCommandProcessor final : public CommandProcessor {
 
   std::unique_ptr<VulkanRenderTargetCache> render_target_cache_;
 
-  std::unique_ptr<VulkanZPDQueryPool> zpd_host_query_pool_;
+  std::unique_ptr<VulkanQueryPool> host_query_pool_;
 
-  // Deferred query slot releases for discards that happen outside a render
-  // pass, where vkCmdEndQuery cannot be issued.  The slot is held until the
-  // submission containing the stale BeginQuery completes on the GPU.
-  struct DeferredQueryRelease {
-    uint64_t submission;
+  VkBuffer viz_predicate_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory viz_predicate_buffer_memory_ = VK_NULL_HANDLE;
+  bool viz_predicate_buffer_failed_ = false;
+  struct PendingVIZCopy {
+    uint32_t id;
     uint32_t query_index;
-    uint32_t query_generation;
+    bool fsi;
   };
-  std::deque<DeferredQueryRelease> zpd_deferred_releases_;
+  std::vector<PendingVIZCopy> viz_pending_copies_;
 
   std::unique_ptr<VulkanPipelineCache> pipeline_cache_;
 
@@ -788,6 +812,10 @@ class VulkanCommandProcessor final : public CommandProcessor {
   // Whether up-to-date data has been written to constant (uniform) buffers, and
   // the buffer infos in current_constant_buffer_infos_ point to them.
   uint32_t current_constant_buffers_up_to_date_;
+  // The index endian the tessellation constant buffer was filled with, from the
+  // primitive processor for the current draw. Not a register, so changes
+  // between draws invalidate the buffer separately from WriteRegister.
+  xenos::Endian current_tessellation_index_endian_ = xenos::Endian::kNone;
   VkDescriptorSet current_graphics_descriptor_sets_
       [SpirvShaderTranslator::kDescriptorSetCount];
   // Whether descriptor sets in current_graphics_descriptor_sets_ point to

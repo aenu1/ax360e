@@ -10,13 +10,13 @@
 #include "xenia/gpu/gpu_flags.h"
 
 DEFINE_path(trace_gpu_prefix, "scratch/gpu/",
-            "Prefix path for GPU trace files.", "GPU");
-DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU");
+            "Prefix path for GPU trace files.", "GPU.Debug");
+DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU.Debug");
 
 DEFINE_path(
     dump_shaders, "",
     "For shader debugging, path to dump GPU shaders to as they are compiled.",
-    "GPU");
+    "GPU.Debug");
 
 DEFINE_bool(vsync, true, "Enable VSYNC.", "GPU");
 
@@ -43,7 +43,7 @@ DEFINE_bool(
     "Disable filtering between cube map faces near edges where possible "
     "(Vulkan with VK_EXT_non_seamless_cube_map) to reproduce the Direct3D 9 "
     "behavior.",
-    "GPU");
+    "GPU.Debug");
 
 // Extremely bright screen borders in 4D5307E6.
 // Reading between texels with half-pixel offset in 58410954.
@@ -57,7 +57,7 @@ DEFINE_bool(
     "textures, for instance, when they are read between texels rather than "
     "at texel centers, or the leftmost/topmost pixels may not be fully covered "
     "when MSAA is used with fullscreen passes.",
-    "GPU");
+    "GPU.Debug");
 
 DEFINE_int32(occlusion_query_fake_lower_threshold, 80,
              "Lower end of the fake sample count value written on "
@@ -71,21 +71,6 @@ DEFINE_int32(occlusion_query_fake_upper_threshold, 100,
              "Keep this higher than occlusion_query_fake_lower_threshold.\n"
              "Ignored if occlusion_query_fake_lower_threshold is -1.",
              "GPU");
-DEFINE_int32(occlusion_query_querybatch_range, 0,
-             "Range of fake sample count values to walk for titles using the "
-             "D3D QueryBatch standard before wrapping back to "
-             "occlusion_query_fake_lower_threshold.\n"
-             "This shouldn't be changed from the default value of 0 (disabled) "
-             "unless necessary for a specific title.",
-             "GPU");
-DEFINE_double(
-    occlusion_query_saturation, 1.0,
-    "Compress higher occlusion query sample counts before guest writeback.\n"
-    "This can be useful if effects such as lens flares appear too strong.\n"
-    "1.0 = default behavior\n"
-    "0.0 = collapse all nonzero sample counts to 1\n"
-    "Values around 0.90 are a good starting point for subtle tuning.",
-    "GPU");
 
 DEFINE_int32(anisotropic_override, -1,
              "Forces anisotropic filtering (AF) for eligible textures.\n"
@@ -104,7 +89,7 @@ DEFINE_int32(anisotropic_override, -1,
 DEFINE_bool(no_discard_stencil_in_transfer_pipelines, false,
             "Skip stencil bit discard in render target transfer pipelines. "
             "May improve performance on some GPUs.",
-            "GPU");
+            "GPU.Debug");
 
 DEFINE_bool(gpu_3d_to_2d_texture, true,
             "Handle shaders that sample 3D textures as 2D by creating a 2D "
@@ -121,14 +106,24 @@ DEFINE_bool(
     "GPU");
 
 DEFINE_bool(
-    ac6_ground_fix, false,
-    "This fixes(hide) issues with black ground in AC6. Use only in AC6. "
-    "Might cause issues in other titles.",
-    "HACKS");
-
-DEFINE_bool(
     force_depth_clamp, false,
     "Use host depth clamping instead of near and far plane clipping when "
     "guest clipping is enabled. X/Y/W clipping is unaffected. On Vulkan, "
     "this requires depthClamp support.",
     "GPU");
+
+DEFINE_bool(
+    mulsc_round_toward_zero, false,
+    "Round mulsc products toward zero instead of to nearest even. This fixes "
+    "bad geometry in several Volition Engine titles and possibly others. "
+    "This rounding behavior hasn't been confirmed on real hardware, so it's "
+    "disabled by default.",
+    "GPU");
+
+DEFINE_bool(xenos_sample_positions, false,
+            "Rasterize 2x and 4x MSAA render targets at the Xenos sample "
+            "positions, like real hardware, if the GPU and driver support it.\n"
+            "Only applies to RTV/FBO - ROV/FSI render targets always use Xenos "
+            "positions since they safely map coverage and calculate depth "
+            "in-shader.",
+            "GPU");

@@ -423,7 +423,7 @@ DECLARE_XBOXKRNL_EXPORT1(XeCryptRc4, kNone, kImplemented);
 
 void InitSha1(sha1::SHA1* sha, const XECRYPT_SHA_STATE* state) {
   uint32_t digest[5];
-  std::copy(std::begin(state->state), std::end(state->state), digest);
+  std::ranges::copy(state->state, digest);
 
   sha->init(digest, state->buffer, state->count);
 }
@@ -468,6 +468,12 @@ void XeCryptShaFinal_entry(pointer_t<XECRYPT_SHA_STATE> sha_state,
   std::copy_n(digest, std::min<size_t>(xe::countof(digest), out_size),
               static_cast<uint8_t*>(out));
   std::copy_n(sha.getDigest(), xe::countof(sha_state->state), sha_state->state);
+  // The console pads in place, so the last block it compressed is left in the
+  // context buffer, not the message tail. Only shows up when a title finalizes
+  // the same context twice and the padding needed a second block, where the
+  // tail no longer survives the first call.
+  std::copy_n(sha.getBlock(), xe::countof(sha_state->buffer),
+              sha_state->buffer);
 }
 DECLARE_XBOXKRNL_EXPORT1(XeCryptShaFinal, kNone, kImplemented);
 
@@ -580,10 +586,8 @@ DECLARE_XBOXKRNL_EXPORT1(XeCryptSha256Init, kNone, kImplemented);
 void XeCryptSha256Update_entry(pointer_t<XECRYPT_SHA256_STATE> sha_state,
                                lpvoid_t input, dword_t input_size) {
   sha256::SHA256 sha;
-  std::copy(std::begin(sha_state->state), std::end(sha_state->state),
-            sha.getHashValues());
-  std::copy(std::begin(sha_state->buffer), std::end(sha_state->buffer),
-            sha.getBuffer());
+  std::ranges::copy(sha_state->state, sha.getHashValues());
+  std::ranges::copy(sha_state->buffer, sha.getBuffer());
   sha.setTotalSize(sha_state->count);
 
   sha.add(input, input_size);
@@ -599,10 +603,8 @@ DECLARE_XBOXKRNL_EXPORT1(XeCryptSha256Update, kNone, kImplemented);
 void XeCryptSha256Final_entry(pointer_t<XECRYPT_SHA256_STATE> sha_state,
                               pointer_t<uint8_t> out, dword_t out_size) {
   sha256::SHA256 sha;
-  std::copy(std::begin(sha_state->state), std::end(sha_state->state),
-            sha.getHashValues());
-  std::copy(std::begin(sha_state->buffer), std::end(sha_state->buffer),
-            sha.getBuffer());
+  std::ranges::copy(sha_state->state, sha.getHashValues());
+  std::ranges::copy(sha_state->buffer, sha.getBuffer());
   sha.setTotalSize(sha_state->count);
 
   uint8_t hash[32];
@@ -610,7 +612,7 @@ void XeCryptSha256Final_entry(pointer_t<XECRYPT_SHA256_STATE> sha_state,
 
   std::copy_n(hash, std::min<size_t>(xe::countof(hash), out_size),
               static_cast<uint8_t*>(out));
-  std::copy(std::begin(hash), std::end(hash), sha_state->buffer);
+  std::ranges::copy(hash, sha_state->buffer);
 }
 DECLARE_XBOXKRNL_EXPORT1(XeCryptSha256Final, kNone, kImplemented);
 
@@ -635,10 +637,8 @@ void XeCryptSha512Update_entry(pointer_t<XECRYPT_SHA512_STATE> sha_state,
 
   // Trick to make similar implementation as SHA256
   SHA512_STATE* sha2 = reinterpret_cast<SHA512_STATE*>(sha);
-  std::copy(std::begin(sha_state->state), std::end(sha_state->state),
-            sha2->state);
-  std::copy(std::begin(sha_state->buffer), std::end(sha_state->buffer),
-            sha2->buffer);
+  std::ranges::copy(sha_state->state, sha2->state);
+  std::ranges::copy(sha_state->buffer, sha2->buffer);
   sha2->count = sha_state->count;
 
   // Add new entry from input
@@ -658,10 +658,8 @@ void XeCryptSha512Final_entry(pointer_t<XECRYPT_SHA256_STATE> sha_state,
 
   // Trick to make similar implementation as SHA256
   SHA512_STATE* sha2 = reinterpret_cast<SHA512_STATE*>(sha);
-  std::copy(std::begin(sha_state->state), std::end(sha_state->state),
-            sha2->state);
-  std::copy(std::begin(sha_state->buffer), std::end(sha_state->buffer),
-            sha2->buffer);
+  std::ranges::copy(sha_state->state, sha2->state);
+  std::ranges::copy(sha_state->buffer, sha2->buffer);
   sha2->count = sha_state->count;
 
   uint8_t hash[64];
@@ -669,7 +667,7 @@ void XeCryptSha512Final_entry(pointer_t<XECRYPT_SHA256_STATE> sha_state,
 
   std::copy_n(hash, std::min<size_t>(xe::countof(hash), out_size),
               static_cast<uint8_t*>(out));
-  std::copy(std::begin(hash), std::end(hash), sha_state->buffer);
+  std::ranges::copy(hash, sha_state->buffer);
 }
 DECLARE_XBOXKRNL_EXPORT1(XeCryptSha512Final, kNone, kImplemented);
 
@@ -691,10 +689,8 @@ void XeCryptMd5Update_entry(pointer_t<XECRYPT_MD5_STATE> md5_state,
 
   // Trick to make similar implementation as SHA256
   MD5_STATE* md5InternalState = reinterpret_cast<MD5_STATE*>(md5);
-  std::copy(std::begin(md5_state->state), std::end(md5_state->state),
-            md5InternalState->ABCD);
-  std::copy(std::begin(md5_state->buffer), std::end(md5_state->buffer),
-            md5InternalState->block);
+  std::ranges::copy(md5_state->state, md5InternalState->ABCD);
+  std::ranges::copy(md5_state->buffer, md5InternalState->block);
   md5InternalState->len = md5_state->count;
 
   // Add new entry from input
@@ -716,10 +712,8 @@ void XeCryptMd5Final_entry(pointer_t<XECRYPT_MD5_STATE> md5_state,
 
   // Trick to make similar implementation as SHA256
   MD5_STATE* md5InternalState = reinterpret_cast<MD5_STATE*>(md5);
-  std::copy(std::begin(md5_state->state), std::end(md5_state->state),
-            md5InternalState->ABCD);
-  std::copy(std::begin(md5_state->buffer), std::end(md5_state->buffer),
-            md5InternalState->block);
+  std::ranges::copy(md5_state->state, md5InternalState->ABCD);
+  std::ranges::copy(md5_state->buffer, md5InternalState->block);
   md5InternalState->len = md5_state->count;
 
   uint8_t hash[16];
@@ -727,7 +721,7 @@ void XeCryptMd5Final_entry(pointer_t<XECRYPT_MD5_STATE> md5_state,
 
   std::copy_n(hash, std::min<size_t>(xe::countof(hash), out_size),
               static_cast<uint8_t*>(out));
-  std::copy(std::begin(hash), std::end(hash), md5_state->buffer);
+  std::ranges::copy(hash, md5_state->buffer);
 }
 DECLARE_XBOXKRNL_EXPORT1(XeCryptMd5Final, kNone, kImplemented);
 

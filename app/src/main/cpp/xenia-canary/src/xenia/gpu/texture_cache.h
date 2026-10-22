@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <type_traits>
 #include <unordered_map>
 
 #include "xenia/base/assert.h"
@@ -47,10 +48,10 @@ namespace gpu {
 //   However, the max level is not ignored because any mip count can be
 //   specified when creating a texture, and another texture may be placed after
 //   the last one.
-// - If the texture has a mip address, but the base address is 0 or the same as
-//   the mip address, a mipmapped texture is created, but min/max LOD is clamped
-//   to the lower bound of 1 - the game is expected to do that anyway until the
-//   largest LOD is loaded.
+// - If the texture has a mip address, but the base address is 0, a mipmapped
+//   texture is created with the minimum LOD clamped to 1.
+// - If the base and mip addresses are the same with a nonzero minimum mip
+//   level, level 0 is already excluded, so the base upload is skipped.
 // TODO(Triang3l): Attach the largest LOD to existing textures with a valid
 // mip_address but no base ever used yet (no base_address) to save memory
 // because textures are streamed this way anyway.
@@ -205,13 +206,8 @@ class TextureCache {
     uint32_t is_valid : 1;  // 98
 
     TextureKey() { MakeInvalid(); }
-    TextureKey(const TextureKey& key) {
-      std::memcpy(this, &key, sizeof(*this));
-    }
-    TextureKey& operator=(const TextureKey& key) {
-      std::memcpy(this, &key, sizeof(*this));
-      return *this;
-    }
+    TextureKey(const TextureKey&) = default;
+    TextureKey& operator=(const TextureKey&) = default;
     void MakeInvalid() {
       // Zero everything, including the padding, for a stable hash.
       std::memset(this, 0, sizeof(*this));
@@ -252,6 +248,10 @@ class TextureCache {
     }
     void LogAction(const char* action) const;
   };
+  static_assert(
+      std::is_trivially_copyable_v<TextureKey>,
+      "TextureKey is compared and hashed by raw bytes; a trivial copy "
+      "is required so padding is carried and stays zero.");
 
   class Texture {
    public:
@@ -523,6 +523,7 @@ class TextureCache {
   struct TextureBinding {
     TextureKey key;
     // Packed integer scale, 6 bits per component.
+    // Bit 24 for normalized values.
     uint32_t integer_scale_bits;
     // Destination swizzle merged with guest to host format swizzle.
     uint32_t host_swizzle;
@@ -601,12 +602,68 @@ class TextureCache {
     assert_true(load_shader_index < kLoadShaderCount);
     return load_shader_info_[load_shader_index];
   }
-  // Integer num_format on fixed textures. Returns the packed scale used by the
-  // shader to restore guest integer units from normalized host samples.
-  static uint32_t GetIntegerScaleBits(xenos::TextureFormat guest_format,
-                                      uint32_t num_format,
-                                      uint32_t guest_swizzle,
-                                      uint8_t swizzled_signs);
+  // Returns the packed scale the translators use to convert normalized host
+  // samples of fixed formats to guest values. It's applied after signs/gamma,
+  // before exp_adjust. Bits 0:23 hold four 6 bit fields: 0:3 contain the
+  // component bit count minus 1 when needed, and bits 4:5 contain TextureSign.
+  // Constant 0/1 components and non-fixed formats have no scale. Gamma
+  // components only store TextureSign for normalized num_format.
+  //
+  // Bit count w comes from FormatInfo for the source selected by the guest
+  // swizzle, clamped to the last stored component, as with the host swizzle.
+  // k_16 uses 16 bits in all four components, k_5_6_5 uses blue's 5 bits for w.
+  //
+  // Integer num_format
+  // To restore the guest integer range, unsigned components are scaled by
+  // 2^w - 1, and signed or unsigned-biased components by 2^(w - 1) - 1.
+  // Signedness conversion already decodes unsigned-biased components as
+  // signed offset binary, giving (n - 2^(w - 1)) / (2^(w - 1) - 1) for a
+  // stored value n (no clamp). The signed scale needs no additional offset,
+  // so a stored 0 returns -2^(w - 1). For 1 bit unsigned-biased, 2 * u - 1 is
+  // kept to avoid dividing by zero where u is the normalized host sample.
+  // Integer num_format scales by 0.5 and subtracts 0.5 to return -1 and 0.
+  //
+  // Host conversion of narrow fixed formats doesn't always give an integer
+  // after scaling, so point sampled results are rounded. Filtered fetches are
+  // aren't never rounded to integers.
+  //
+  // Normalized num_format (bit 24)
+  // Unsigned components are rounded to 16 fractional bits. 4D5309C9 & 4D530AA4
+  // expect that precision when comparing filtered samples, and their SSAO masks
+  // break without it. Signed components aren't rounded since no title depending
+  // on that has been identified.
+  //
+  // 425307EC's point sampled k_5_6_5 page table stores physical page x/y and
+  // log2 of the mip width in pages. The shader multiplies by 1024/33 and
+  // 4096/65 (65536/257 for the 8 bit variant), then floors the coordinates
+  // and applies exp2 to the mip field. Those constants support repeating the
+  // 5 and 6 bit components twice, giving n * (2^w + 1) / 2^(2w). 4 and 7 bit
+  // cases are extrapolated from this. The same page table calculation can be
+  // seen in appendix A.6 of id Software's Software Virtual Textures (2012),
+  // with these 5 and 6 bit factors for RADEON_X1900 and a separate conversion
+  // for GEFORCE_7800.
+  //
+  // AMD Polaris tests match n / (2^w - 1), giving 1025 instead of 1024
+  // after exp2 and floor for a 6 bit mip field of 10. NVIDIA Ada Lovelace
+  // expands to 8 bits by repeating the high bits, so 3/31 becomes 24/255
+  // and 12 of the 32 page coordinates floor to n - 1.
+  //
+  // Point sampling coordinates (bit 26)
+  // Eligible 2D point fetches with normalized coordinates use texel centers
+  // instead of the translator's 1.5 / 1024 texel epsilon, which compensates
+  // for host rounding where the guest truncates, but often selects the next
+  // texel while frac(coord * size) still refers to the previous page. This
+  // results in texture seams in 425307EC, more noticeably on AMD.
+  //
+  // TODO(boma): 1 and 2 bit unsigned components still need testing on real
+  // hardware. The 4 and 7 bit conversions are merely extrapolated from 5 and
+  // 6 bit cases right now. Repeating the bits twice never gets to 1.0, so
+  // 4 to 7 bit maximum values need checking too. Q16 rounding also needs
+  // testing, including whether it should apply to signed components. We also
+  // need to compare coordinate rounding for unnormalized, 3D, and cube point
+  // fetches between real hardware and different GPUs.
+  static uint32_t GetIntegerScaleBits(
+      const xenos::xe_gpu_texture_fetch_t& fetch, uint8_t swizzled_signs);
   bool LoadTextureData(Texture& texture);
   void LoadTexturesData(Texture** textures, uint32_t n_textures);
   // Writes the texture data (for base, mips or both - but not neither) from the
@@ -638,6 +695,19 @@ class TextureCache {
   // implementation to update the internal dependencies of the binding.
   virtual void UpdateTextureBindingsImpl(uint32_t fetch_constant_mask) {}
 
+  // Checks if there are any pages that contain scaled resolve data within the
+  // range.
+  bool IsRangeScaledResolved(uint32_t start_unscaled, uint32_t length_unscaled);
+
+  // Whether the mips of a scaled resolve texture must be generated on the host
+  // (the guest did not resolve them into scaled memory itself).
+  bool ScaledResolveMipsNeedGeneration(const Texture& texture) {
+    const TextureKey& key = texture.key();
+    return key.scaled_resolve && key.mip_max_level != 0 &&
+           !IsRangeScaledResolved(key.mip_page << 12,
+                                  texture.GetGuestMipsSize());
+  }
+
  private:
   void UpdateTexturesTotalHostMemoryUsage(uint64_t add, uint64_t subtract);
 
@@ -646,9 +716,6 @@ class TextureCache {
                             void* context, void* data, uint64_t argument,
                             bool invalidated_by_gpu);
 
-  // Checks if there are any pages that contain scaled resolve data within the
-  // range.
-  bool IsRangeScaledResolved(uint32_t start_unscaled, uint32_t length_unscaled);
   // Global shared memory invalidation callback for invalidating scaled resolved
   // texture data.
   static void ScaledResolveGlobalWatchCallbackThunk(

@@ -89,9 +89,13 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
   struct Framebuffer {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
     VkExtent2D host_extent{};
+    RenderPassKey render_pass_key;
     Framebuffer() = default;
-    Framebuffer(VkFramebuffer framebuffer, const VkExtent2D& host_extent)
-        : framebuffer(framebuffer), host_extent(host_extent) {}
+    Framebuffer(VkFramebuffer framebuffer, const VkExtent2D& host_extent,
+                RenderPassKey render_pass_key)
+        : framebuffer(framebuffer),
+          host_extent(host_extent),
+          render_pass_key(render_pass_key) {}
   };
 
   VulkanRenderTargetCache(const RegisterFile& register_file,
@@ -130,8 +134,8 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
 
   bool Update(bool is_rasterization_done,
               reg::RB_DEPTHCONTROL normalized_depth_control,
-              uint32_t normalized_color_mask,
-              const Shader& vertex_shader) override;
+              uint32_t normalized_color_mask, const Shader& vertex_shader,
+              int32_t window_offset_tiles) override;
   // Binding information for the last successful update.
   RenderPassKey last_update_render_pass_key() const {
     return last_update_render_pass_key_;
@@ -174,6 +178,20 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
   bool IsMsaa2xSupported(bool subpass_has_attachments) const {
     return subpass_has_attachments ? msaa_2x_attachments_supported_
                                    : msaa_2x_no_attachments_supported_;
+  }
+
+  // Xenos sample locations for pipelines at the guest sample count.
+  // nullptr for the default locations.
+  const VkSampleLocationsInfoEXT* GetSampleLocationsInfo(
+      xenos::MsaaSamples msaa_samples, bool subpass_has_attachments) const {
+    if (msaa_samples != xenos::MsaaSamples::k2X &&
+        msaa_samples != xenos::MsaaSamples::k4X) {
+      return nullptr;
+    }
+    const VkSampleLocationsInfoEXT& info =
+        sample_locations_info_[subpass_has_attachments]
+                              [msaa_samples == xenos::MsaaSamples::k4X];
+    return info.sampleLocationsCount ? &info : nullptr;
   }
 
   // Returns the render pass object, or VK_NULL_HANDLE if failed to create.
@@ -447,6 +465,12 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     uint32_t temporary_sort_index_ = 0;
   };
 
+  // Pushes the barrier to the new usage and records it.
+  void TransitionRenderTarget(VulkanRenderTarget& render_target,
+                              VkPipelineStageFlags dst_stage_mask,
+                              VkAccessFlags dst_access_mask,
+                              VkImageLayout new_layout);
+
   struct FramebufferKey {
     RenderPassKey render_pass_key;
 
@@ -666,11 +690,12 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
       uint32_t source_pitch : xenos::kEdramPitchTilesBits;
       // Destination base in tiles minus source base in tiles (not vice versa
       // because this is a transform of the coordinate system, not addresses
-      // themselves).
-      // + 1 bit because this is a signed difference between two EDRAM bases.
+      // themselves), wrapped, the shader wraps the sum anyway.
       // 0 for host_depth_source_is_copy (ignored in this case anyway as
       // destination == source anyway).
-      int32_t source_to_dest : xenos::kEdramBaseTilesBits + 1;
+      uint32_t source_to_dest : xenos::kEdramBaseTilesBits;
+      // The source render target is in the next period (64bpp color only).
+      uint32_t source_next_period : 1;
     };
     TransferAddressConstant() : constant(0) {
       static_assert_size(*this, sizeof(constant));
@@ -795,8 +820,9 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     uint32_t offsets;
     struct {
       // May be beyond the EDRAM tile count in case of EDRAM addressing
-      // wrapping, thus + 1 bit.
-      uint32_t dispatch_first_tile : xenos::kEdramBaseTilesBits + 1;
+      // wrapping, and another tile count beyond for a render target in the next
+      // period, thus + 2 bits.
+      uint32_t dispatch_first_tile : xenos::kEdramBaseTilesBits + 2;
       uint32_t source_base_tiles : xenos::kEdramBaseTilesBits;
     };
     DumpOffsets() : offsets(0) { static_assert_size(*this, sizeof(offsets)); }
@@ -898,6 +924,11 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
 
   bool msaa_2x_attachments_supported_ = false;
   bool msaa_2x_no_attachments_supported_ = false;
+
+  // Indexed by subpass_has_attachments, then whether MSAA is 4x.
+  // sampleLocationsCount is 0 when using the default sample locations.
+  VkSampleLocationsInfoEXT sample_locations_info_[2][2] = {};
+  VkSampleLocationEXT sample_locations_[2][2][4];
 
   // VK_NULL_HANDLE if failed to create.
   std::unordered_map<RenderPassKey, VkRenderPass, RenderPassKey::Hasher>

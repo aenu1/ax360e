@@ -34,22 +34,38 @@ class KernelState;
 template <typename T>
 class object_ref;
 
-enum X_DISPATCHER_FLAGS : uint8_t {
-  DISPATCHER_MANUAL_RESET_EVENT = 0,  // EventNotificationObject
-  DISPATCHER_AUTO_RESET_EVENT = 1,    // EventSynchronizationObject
-  DISPATCHER_MUTANT = 2,              // MutantObject
-  DISPATCHER_QUEUE = 4,
-  DISPATCHER_SEMAPHORE = 5,  // SemaphoreObject
-  DISPATCHER_THREAD = 6,
-  DISPATCHER_MANUAL_RESET_TIMER = 8,
-  DISPATCHER_AUTO_RESET_TIMER = 9,
-  DISPATCHER_UNDEFINED = 0xFF,
+enum X_OBJECT_TYPES : uint8_t {
+  EventNotificationObject = 0x0,     // Manual Reset
+  EventSynchronizationObject = 0x1,  // Auto Reset
+  MutantObject = 0x2,
+  ProcessObject = 0x3,
+  QueueObject = 0x4,
+  SemaphoreObject = 0x5,
+  ThreadObject = 0x6,
+  Spare1Object = 0x7,  // GateObject?
+  TimerNotificationObject = 0x8,
+  TimerSynchronizationObject = 0x9,
+  Spare2Object = 0xA,
+  Spare3Object = 0xB,
+  Spare4Object = 0xC,
+  Spare5Object = 0xD,
+  Spare6Object = 0xE,
+  Spare7Object = 0xF,
+  Spare8Object = 0x10,
+  Spare9Object = 0x11,
+  ApcObject = 0x12,
+  DpcObject = 0x13,
+  DeviceQueueObject = 0x14,
+  EventPairObject = 0x15,
+  InterruptObject = 0x16,
+  ProfileObject = 0x17,
+  UndefinedObject = 0xFF,
 };
 
 // https://www.nirsoft.net/kernel_struct/vista/DISPATCHER_HEADER.html
 typedef struct {
   struct {
-    X_DISPATCHER_FLAGS type;
+    X_OBJECT_TYPES type;
 
     union {
       uint8_t abandoned;
@@ -125,21 +141,20 @@ class XObject {
     }
   }
 
-  static Type MapGuestTypeToHost(X_DISPATCHER_FLAGS flag) {
+  static Type MapGuestTypeToHost(X_OBJECT_TYPES flag) {
     // TODO: This is not fully filled in.
     switch (flag) {
-      case X_DISPATCHER_FLAGS::DISPATCHER_MANUAL_RESET_EVENT:
-      case X_DISPATCHER_FLAGS::DISPATCHER_AUTO_RESET_EVENT:
+      case X_OBJECT_TYPES::EventNotificationObject:
+      case X_OBJECT_TYPES::EventSynchronizationObject:
         return Type::Event;
+      case X_OBJECT_TYPES::MutantObject:
         return Type::Mutant;
-      case X_DISPATCHER_FLAGS::DISPATCHER_MUTANT:
-        return Type::Mutant;
-      case X_DISPATCHER_FLAGS::DISPATCHER_SEMAPHORE:
+      case X_OBJECT_TYPES::SemaphoreObject:
         return Type::Semaphore;
-      case X_DISPATCHER_FLAGS::DISPATCHER_THREAD:
+      case X_OBJECT_TYPES::ThreadObject:
         return Type::Thread;
-      case X_DISPATCHER_FLAGS::DISPATCHER_MANUAL_RESET_TIMER:
-      case X_DISPATCHER_FLAGS::DISPATCHER_AUTO_RESET_TIMER:
+      case X_OBJECT_TYPES::TimerNotificationObject:
+      case X_OBJECT_TYPES::TimerSynchronizationObject:
         return Type::Timer;
       default:
         return Type::Undefined;
@@ -166,6 +181,7 @@ class XObject {
 
   const std::string& name() const { return name_; }
   uint32_t guest_object() const { return guest_object_ptr_; }
+  uint32_t guest_object_type() const { return guest_object_type_ptr_.load(); }
 
   // Has this object been created for use by the host?
   // Host objects are persisted through reloads/etc.
@@ -195,6 +211,8 @@ class XObject {
 
   void SetAttributes(uint32_t obj_attributes_ptr);
 
+  void SetNativeType();
+
   X_STATUS Wait(uint32_t wait_reason, uint32_t processor_mode,
                 uint32_t alertable, uint64_t* opt_timeout);
   static X_STATUS SignalAndWait(XObject* signal_object, XObject* wait_object,
@@ -207,13 +225,12 @@ class XObject {
 
   static object_ref<XObject> GetNativeObject(
       KernelState* kernel_state, void* native_ptr,
-      X_DISPATCHER_FLAGS as_type = DISPATCHER_UNDEFINED,
-      bool already_locked = false);
+      X_OBJECT_TYPES as_type = UndefinedObject, bool already_locked = false);
   template <typename T>
-  static object_ref<T> GetNativeObject(
-      KernelState* kernel_state, void* native_ptr,
-      X_DISPATCHER_FLAGS as_type = DISPATCHER_UNDEFINED,
-      bool already_locked = false);
+  static object_ref<T> GetNativeObject(KernelState* kernel_state,
+                                       void* native_ptr,
+                                       X_OBJECT_TYPES as_type = UndefinedObject,
+                                       bool already_locked = false);
 
   // Priority increment stored by the most recent signal operation
   // (KeSetEvent, KeReleaseSemaphore, etc.).  Read by the waiter on wake
@@ -227,6 +244,7 @@ class XObject {
 
   // Called on successful wait.
   virtual void WaitCallback() {}
+  virtual void SyncFromGuest() {}
   virtual xe::threading::WaitHandle* GetWaitHandle() { return nullptr; }
 
   // Creates the kernel object for guest code to use. Typically not needed.
@@ -264,6 +282,8 @@ class XObject {
   // if we allocated it!
   uint32_t guest_object_ptr_ = 0;
   bool allocated_guest_object_ = false;
+
+  std::atomic<uint32_t> guest_object_type_ptr_{0};
 };
 
 template <typename T>
@@ -396,8 +416,7 @@ object_ref<T> retain_object(T* ptr) {
 
 template <typename T>
 object_ref<T> XObject::GetNativeObject(KernelState* kernel_state,
-                                       void* native_ptr,
-                                       X_DISPATCHER_FLAGS as_type,
+                                       void* native_ptr, X_OBJECT_TYPES as_type,
                                        bool already_locked) {
   return object_ref<T>(reinterpret_cast<T*>(
       GetNativeObject(kernel_state, native_ptr, as_type, already_locked)

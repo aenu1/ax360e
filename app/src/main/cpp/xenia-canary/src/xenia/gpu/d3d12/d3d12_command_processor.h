@@ -24,10 +24,10 @@
 #include "xenia/gpu/command_processor.h"
 #include "xenia/gpu/d3d12/d3d12_graphics_system.h"
 #include "xenia/gpu/d3d12/d3d12_primitive_processor.h"
+#include "xenia/gpu/d3d12/d3d12_query_pool.h"
 #include "xenia/gpu/d3d12/d3d12_render_target_cache.h"
 #include "xenia/gpu/d3d12/d3d12_shared_memory.h"
 #include "xenia/gpu/d3d12/d3d12_texture_cache.h"
-#include "xenia/gpu/d3d12/d3d12_zpd_query_pool.h"
 #include "xenia/gpu/d3d12/deferred_command_list.h"
 #include "xenia/gpu/d3d12/pipeline_cache.h"
 #include "xenia/gpu/draw_util.h"
@@ -172,7 +172,7 @@ class D3D12CommandProcessor final : public CommandProcessor {
     kEdramR32UintUAV,
     kEdramR32G32UintUAV,
     kEdramR32G32B32A32UintUAV,
-    kZpdROVCounterRawUAV,
+    kZpdCounterRawUAV,
 
     kGammaRampTableSRV,
     kGammaRampPWLSRV,
@@ -218,6 +218,14 @@ class D3D12CommandProcessor final : public CommandProcessor {
   void SetScissorRect(const D3D12_RECT& scissor_rect);
   void SetStencilReference(uint32_t stencil_ref);
   void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY primitive_topology);
+
+  // Sets Xenos MSAA sample positions based on ForcedSampleCount for ROV, or
+  // target sample count, or the default pattern at 1x. Submits pending
+  // barriers under the old pattern first.
+  void UpdateSamplePositions(xenos::MsaaSamples msaa_samples);
+  bool xenos_sample_positions_used() const {
+    return xenos_sample_positions_used_;
+  }
 
   // Returns the text to display in the GPU backend name in the window title.
   std::string GetWindowTitleText() const;
@@ -452,10 +460,12 @@ class D3D12CommandProcessor final : public CommandProcessor {
       D3D12_CPU_DESCRIPTOR_HANDLE& cpu_handle_out,
       D3D12_GPU_DESCRIPTOR_HANDLE& gpu_handle_out);
 
-  void UpdateFixedFunctionState(const draw_util::ViewportInfo& viewport_info,
-                                const draw_util::Scissor& scissor,
-                                bool primitive_polygonal,
-                                reg::RB_DEPTHCONTROL normalized_depth_control);
+  void UpdateFixedFunctionState(
+      const draw_util::ViewportInfo& viewport_info,
+      const draw_util::Scissor& scissor, bool primitive_polygonal,
+      reg::RB_DEPTHCONTROL normalized_depth_control,
+      uint32_t normalized_color_mask,
+      uint32_t bound_depth_and_color_render_target_bits);
 
   template <bool primitive_polygonal, bool edram_rov_used>
   XE_NOINLINE void UpdateSystemConstantValues_Impl(
@@ -463,7 +473,8 @@ class D3D12CommandProcessor final : public CommandProcessor {
       xenos::Endian index_endian, const draw_util::ViewportInfo& viewport_info,
       uint32_t used_texture_mask, reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
-      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset);
+      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
+      int32_t window_offset_tiles);
 
   void UpdateSystemConstantValues(
       bool shared_memory_is_uav, bool primitive_polygonal,
@@ -471,7 +482,8 @@ class D3D12CommandProcessor final : public CommandProcessor {
       const draw_util::ViewportInfo& viewport_info, uint32_t used_texture_mask,
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
-      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset);
+      const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
+      int32_t window_offset_tiles);
   bool UpdateBindings(const D3D12Shader* vertex_shader,
                       const D3D12Shader* pixel_shader,
                       ID3D12RootSignature* root_signature,
@@ -494,45 +506,55 @@ class D3D12CommandProcessor final : public CommandProcessor {
   ID3D12Resource* RequestReadbackBuffer(uint32_t size);
 
   void WriteGammaRampSRV(bool is_pwl, D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
-  void WriteZPDROVCounterRawUAVDescriptor(
+  void WriteZPDCounterRawUAVDescriptor(
       D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
 
-  // ZPD occlusion queries backend.
+  // Query segments backend for both ZPD occlusion query reports and
+  // VIZ visibility surveys & conditional rendering.
+  //
   // BeginQuery/EndQuery must be in the same command list, segments split at
-  // EndSubmission, resume at BeginSubmission. Discarded queries still need
-  // EndQuery or the heap slot breaks on some drivers. RecordZPDResolveBatch
-  // emits coalesced ResolveQueryData and ROV counter copies at submit.
-  void EnsureZPDQueryResources() override;
-  void ShutdownZPDQueryResources() override {
-    zpd_resolves_in_flight_.clear();
-    zpd_active_query_index_ = UINT32_MAX;
-    zpd_active_query_generation_ = 0;
-    zpd_active_query_is_rov_ = false;
-    zpd_query_pool_needs_rov_counter_ = false;
-    bindful_zpd_rov_counter_buffer_ = nullptr;
-    bindful_zpd_rov_counter_capacity_ = 0;
+  // EndSubmission, resume at BeginSubmission. Coalesced ResolveQueryData and
+  // counter copies are emitted at submit.
+  void EnsureQueryResources() override;
+  void ShutdownQueryResources() override {
+    query_resolves_in_flight_.clear();
+    active_query_index_ = UINT32_MAX;
+    active_query_generation_ = 0;
+    active_query_is_rov_ = false;
+    zpd_rov_path_ = false;
+    bindful_zpd_counter_buffer_ = nullptr;
+    bindful_zpd_counter_capacity_ = 0;
     if (!bindless_resources_used_) {
       draw_view_bindful_heap_index_ =
           ui::d3d12::D3D12DescriptorHeapPool::kHeapIndexInvalid;
     }
-    if (zpd_host_query_pool_) {
-      zpd_host_query_pool_->Shutdown();
+    if (host_query_pool_) {
+      host_query_pool_->Shutdown();
     }
   }
 
-  bool IsZPDQueryPoolReady() const override;
-  bool CanOpenZPDQuery() const override;
+  bool IsQueryPoolReady() const override;
+  bool CanOpenQuery() const override;
 
-  QueryOpenResult OpenZPDQuery(ReportHandle report_handle,
-                               bool can_close_submission) override;
-  bool CloseZPDQuery(ReportHandle report_handle,
-                     uint64_t& out_submission) override;
-  bool DiscardZPDQuery() override;
+  QueryOpenResult OpenQuery(bool can_close_submission) override;
+  bool CloseQuery(ReportHandle report_handle, const VIZQueryHandle& viz,
+                  uint64_t& out_submission) override;
   void PumpQueryResolves() override;
   bool AwaitQueryResolve(ReportHandle report_handle,
                          uint64_t wait_for_submission) override;
 
-  void RecordZPDResolveBatch();
+  bool EnsureVIZPredicateBuffer();
+  // The tracked transition without recording it, so it can batch with other
+  // barriers. False when none is needed.
+  bool GetVIZPredicateBufferBarrier(D3D12_RESOURCE_STATES new_state,
+                                    D3D12_RESOURCE_BARRIER& barrier_out);
+  void AwaitVIZQueryResolve(uint64_t wait_for_submission) override;
+  void ShutdownVIZQueryResources() {
+    viz_predicate_buffer_.Reset();
+    viz_predicate_buffer_state_ = D3D12_RESOURCE_STATE_COMMON;
+    viz_predicate_buffer_state_submission_ = UINT64_MAX;
+    viz_predicate_buffer_failed_ = false;
+  }
 
   bool device_removed_ = false;
 
@@ -543,14 +565,17 @@ class D3D12CommandProcessor final : public CommandProcessor {
     uint32_t query_index = UINT32_MAX;
     uint32_t query_generation = 0;
     uint32_t scale_area = 1;
-    bool uses_rov_counter = false;
+    bool rov = false;
+    bool hybrid = false;
     ReportHandle report_handle = kInvalidReportHandle;
+    VIZQueryHandle viz;
   };
-  uint32_t zpd_active_query_index_ = UINT32_MAX;
-  uint32_t zpd_active_query_generation_ = 0;
-  bool zpd_active_query_is_rov_ = false;
-  bool zpd_query_pool_needs_rov_counter_ = false;
-  std::deque<PendingQueryResolve> zpd_resolves_in_flight_;
+  uint32_t active_query_index_ = UINT32_MAX;
+  uint32_t active_query_generation_ = 0;
+  bool active_query_is_rov_ = false;
+  bool zpd_rov_path_ = false;
+  bool zpd_hybrid_supported_ = false;
+  std::deque<PendingQueryResolve> query_resolves_in_flight_;
 
   std::unique_ptr<ui::d3d12::D3D12GPUCompletionTimeline> completion_timeline_;
   bool submission_open_ = false;
@@ -591,13 +616,25 @@ class D3D12CommandProcessor final : public CommandProcessor {
   // of UpdateBindings time, and that's outside the emulator's control even).
   bool bindless_resources_used_ = false;
 
+  // SetSamplePositions and ResolveSubresourceRegion remove the device
+  // without tier 1 support.
+  bool xenos_sample_positions_used_ = false;
+
   std::unique_ptr<D3D12SharedMemory> shared_memory_;
 
   std::unique_ptr<D3D12RenderTargetCache> render_target_cache_;
 
-  std::unique_ptr<D3D12ZPDQueryPool> zpd_host_query_pool_;
-  ID3D12Resource* bindful_zpd_rov_counter_buffer_ = nullptr;
-  uint32_t bindful_zpd_rov_counter_capacity_ = 0;
+  std::unique_ptr<D3D12QueryPool> host_query_pool_;
+  ID3D12Resource* bindful_zpd_counter_buffer_ = nullptr;
+  uint32_t bindful_zpd_counter_capacity_ = 0;
+
+  // The tracked state is only valid within the recorded submission. Buffers
+  // decay to COMMON when the previous submission's command list finishes.
+  Microsoft::WRL::ComPtr<ID3D12Resource> viz_predicate_buffer_;
+  D3D12_RESOURCE_STATES viz_predicate_buffer_state_ =
+      D3D12_RESOURCE_STATE_COMMON;
+  uint64_t viz_predicate_buffer_state_submission_ = UINT64_MAX;
+  bool viz_predicate_buffer_failed_ = false;
 
   std::unique_ptr<ui::d3d12::D3D12UploadBufferPool> constant_buffer_pool_;
 
@@ -879,6 +916,9 @@ class D3D12CommandProcessor final : public CommandProcessor {
 
   // Current primitive topology.
   D3D_PRIMITIVE_TOPOLOGY primitive_topology_;
+
+  // MSAA mode the command list's sample positions are programmed for.
+  xenos::MsaaSamples current_sample_positions_;
 
   draw_util::GetViewportInfoArgs previous_viewport_info_args_;
   draw_util::ViewportInfo previous_viewport_info_;
