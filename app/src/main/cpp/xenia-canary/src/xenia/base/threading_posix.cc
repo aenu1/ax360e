@@ -293,25 +293,14 @@ class PosixConditionBase {
   virtual ~PosixConditionBase() = default;
   virtual bool Signal() = 0;
 
-  WaitResult Wait(std::chrono::milliseconds timeout) {
+  virtual WaitResult Wait(std::chrono::milliseconds timeout) {
     bool executed;
     auto predicate = [this] { return this->signaled(); };
 
-#if !XE_PLATFORM_AX360E
-    // Handle robust mutex locking
-    auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
-    int lock_result = pthread_mutex_lock(native_mutex);
-    if (lock_result == EOWNERDEAD) {
-      // Recover from dead owner
-      pthread_mutex_consistent(native_mutex);
-    } else if (lock_result != 0) {
+    auto lock = LockForWait();
+    if (!lock.owns_lock()) {
       return WaitResult::kFailed;
     }
-
-    std::unique_lock<std::mutex> lock(mutex_, std::adopt_lock);
-#else
-    std::unique_lock<std::mutex> lock(mutex_);
-#endif
 
     if (predicate()) {
       executed = true;
@@ -328,6 +317,18 @@ class PosixConditionBase {
       return WaitResult::kSuccess;
     }
     return WaitResult::kTimeout;
+  }
+
+  // (z163, XenDroid port) Signal first and drop its lock (ABBA/self-deadlock
+  // otherwise), then wait through this object's own Wait() so type-specific
+  // machinery is kept. Types with stricter needs (auto-reset event hand-off)
+  // override this.
+  virtual WaitResult SignalAndWaitOn(PosixConditionBase* to_signal,
+                                     std::chrono::milliseconds timeout) {
+    if (!to_signal->Signal()) {
+      return WaitResult::kFailed;
+    }
+    return Wait(timeout);
   }
 
   static std::pair<WaitResult, size_t> WaitMultiple(
@@ -466,6 +467,27 @@ class PosixConditionBase {
   }
 
  protected:
+  // Locks mutex_ for a wait path. On non-AX360E the underlying pthread mutex
+  // is robust, so a previous owner's death is recovered from instead of
+  // wedging the object forever; a non-owning lock is returned on failure.
+  // Every Wait override must acquire the mutex through this so the robust
+  // handling is not bypassed.
+  std::unique_lock<std::mutex> LockForWait() {
+#if !XE_PLATFORM_AX360E
+    auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
+    int lock_result = pthread_mutex_lock(native_mutex);
+    if (lock_result == EOWNERDEAD) {
+      // Recover from dead owner
+      pthread_mutex_consistent(native_mutex);
+    } else if (lock_result != 0) {
+      return std::unique_lock<std::mutex>();
+    }
+    return std::unique_lock<std::mutex>(mutex_, std::adopt_lock);
+#else
+    return std::unique_lock<std::mutex>(mutex_);
+#endif
+  }
+
   [[nodiscard]] inline virtual bool signaled() const = 0;
   inline virtual void post_execution() = 0;
   std::condition_variable cond_;
@@ -479,6 +501,15 @@ class PosixConditionBase {
 template <typename T>
 class PosixCondition {};
 
+// (z163, XenDroid port) NT auto-reset SetEvent semantics (hand-off mode): a
+// Set releases one ALREADY-WAITING thread via a per-waiter FIFO, so the
+// setter can never reclaim its own signal; with no waiter it latches one
+// idempotent token. This closes the lost-wakeup window of the two-step
+// SignalAndWait below: a reply Set racing the signal/wait gap hands its
+// token to the queued waiter (or latches for it) instead of being stolen
+// by a WaitMultiple poller -- the systematic stall rescue used to paper
+// over (ACE6: main thread & audio worker both SignalAndWait the same
+// mutant+auto-reset event pair; z161 KWait trace caught them parked).
 template <>
 class PosixCondition<Event> : public PosixConditionBase {
  public:
@@ -486,11 +517,21 @@ class PosixCondition<Event> : public PosixConditionBase {
       : signal_(initial_state), manual_reset_(manual_reset) {}
   ~PosixCondition() override = default;
 
+  // SetEvent.
   bool Signal() override {
     auto lock = std::unique_lock(mutex_);
+    if (manual_reset_) {
+      signal_ = true;
+      NotifyAllLocked();
+      return true;
+    }
+    if (ReleaseOneWaiterLocked()) {
+      NotifyAllLocked();
+      return true;
+    }
+    // No waiter: latch one idempotent token.
     signal_ = true;
-    cond_.notify_all();
-    NotifyMultiObjectWaiters();
+    NotifyAllLocked();
     return true;
   }
 
@@ -505,8 +546,187 @@ class PosixCondition<Event> : public PosixConditionBase {
     return EventInfo{manual_reset_ ? 0u : 1u, signal_ ? 1u : 0u};
   }
 
+  // WaitForSingleObject.
+  WaitResult Wait(std::chrono::milliseconds timeout) override {
+    auto lock = LockForWait();
+    if (!lock.owns_lock()) {
+      return WaitResult::kFailed;
+    }
+    return WaitLocked(lock, timeout);
+  }
+
+  // (z163, XenDroid port) Register as a waiter BEFORE signalling so a reply
+  // Set that is causally downstream of the signal must hand its token to
+  // this node -- a WaitMultiple poller cannot steal it in the signal/wait
+  // gap. At most one lock is held at any point, so this cannot deadlock.
+  WaitResult SignalAndWaitOn(PosixConditionBase* to_signal,
+                             std::chrono::milliseconds timeout) override {
+    if (manual_reset_) {
+      // No hand-off state exists for manual reset; signal first, then wait.
+      if (!to_signal->Signal()) {
+        return WaitResult::kFailed;
+      }
+      auto lock = LockForWait();
+      if (!lock.owns_lock()) {
+        return WaitResult::kFailed;
+      }
+      return WaitLocked(lock, timeout);
+    }
+    Waiter node;
+    {
+      auto lock = LockForWait();
+      if (!lock.owns_lock()) {
+        return WaitResult::kFailed;
+      }
+      PushBack(&node);
+    }
+    if (!to_signal->Signal()) {
+      auto lock = LockOrSpin();
+      Unlink(&node);
+      return WaitResult::kFailed;
+    }
+    auto lock = LockOrSpin();
+    return WaitEnqueuedLocked(lock, &node, timeout);
+  }
+
  private:
-  [[nodiscard]] bool signaled() const override { return signal_; }
+  // Locks without the option of giving up, for paths where a Waiter node is
+  // already linked and returning would leave a dangling stack node in the
+  // queue (LockForWait only fails on a hard robust-mutex error, which is
+  // practically unreachable for a healthy object).
+  std::unique_lock<std::mutex> LockOrSpin() {
+    while (true) {
+      auto lock = LockForWait();
+      if (lock.owns_lock()) {
+        return lock;
+      }
+      MaybeYield();
+    }
+  }
+
+  // Intrusive per-waiter FIFO node on the waiter's stack.
+  struct Waiter {
+    bool released = false;
+    Waiter* prev = nullptr;
+    Waiter* next = nullptr;
+  };
+
+  void NotifyAllLocked() {
+    cond_.notify_all();
+    NotifyMultiObjectWaiters();
+  }
+
+  bool ReleaseOneWaiterLocked() {
+    for (Waiter* w = head_; w != nullptr; w = w->next) {
+      if (!w->released) {
+        w->released = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  WaitResult WaitLocked(std::unique_lock<std::mutex>& lock,
+                        std::chrono::milliseconds timeout) {
+    if (manual_reset_) {
+      // Plain latch; manual reset stays set until Reset().
+      auto predicate = [this] { return signal_; };
+      bool executed;
+      if (predicate()) {
+        executed = true;
+      } else if (timeout == std::chrono::milliseconds::max()) {
+        cond_.wait(lock, predicate);
+        executed = true;
+      } else {
+        executed = cond_.wait_for(lock, timeout, predicate);
+      }
+      return executed ? WaitResult::kSuccess : WaitResult::kTimeout;
+    }
+
+    // Latched token with an empty queue: consume directly.
+    if (signal_ && head_ == nullptr) {
+      signal_ = false;
+      return WaitResult::kSuccess;
+    }
+
+    // Enqueue under the lock so a concurrent Set observes us; complete on
+    // our released flag or, as the head, on the latch.
+    Waiter node;
+    PushBack(&node);
+    return WaitEnqueuedLocked(lock, &node, timeout);
+  }
+
+  // Blocks on an already-enqueued node and always unlinks it before
+  // returning. The outcome is re-derived from the node state under the lock
+  // rather than trusting wait_for's return value: a release may land while a
+  // timed-out call is reacquiring the mutex, and that release must win.
+  WaitResult WaitEnqueuedLocked(std::unique_lock<std::mutex>& lock,
+                                Waiter* node,
+                                std::chrono::milliseconds timeout) {
+    auto predicate = [this, node] {
+      return node->released || (signal_ && head_ == node);
+    };
+    if (timeout == std::chrono::milliseconds::max()) {
+      cond_.wait(lock, predicate);
+    } else {
+      (void)cond_.wait_for(lock, timeout, predicate);
+    }
+
+    if (node->released) {
+      Unlink(node);
+      return WaitResult::kSuccess;
+    }
+    if (signal_ && head_ == node) {
+      signal_ = false;
+      Unlink(node);
+      return WaitResult::kSuccess;
+    }
+    Unlink(node);
+    return WaitResult::kTimeout;
+  }
+
+  void PushBack(Waiter* node) {
+    node->prev = tail_;
+    node->next = nullptr;
+    if (tail_ != nullptr) {
+      tail_->next = node;
+    } else {
+      head_ = node;
+    }
+    tail_ = node;
+  }
+
+  void Unlink(Waiter* node) {
+    const bool was_head = (head_ == node);
+    if (node->prev != nullptr) {
+      node->prev->next = node->next;
+    } else {
+      head_ = node->next;
+    }
+    if (node->next != nullptr) {
+      node->next->prev = node->prev;
+    } else {
+      tail_ = node->prev;
+    }
+    node->prev = node->next = nullptr;
+    // With the head gone a latched token may now be claimable by the next
+    // head or, once the queue has drained, by a multi-object waiter.
+    if (was_head && signal_) {
+      if (head_ != nullptr) {
+        cond_.notify_all();
+      }
+      NotifyMultiObjectWaiters();
+    }
+  }
+
+  // WaitMultiple view: auto-reset reports signaled only when no queued
+  // single-object waiter could claim the token.
+  [[nodiscard]] bool signaled() const override {
+    if (manual_reset_) {
+      return signal_;
+    }
+    return signal_ && head_ == nullptr;
+  }
   void post_execution() override {
     if (!manual_reset_) {
       signal_ = false;
@@ -514,6 +734,8 @@ class PosixCondition<Event> : public PosixConditionBase {
   }
   bool signal_;
   const bool manual_reset_;
+  Waiter* head_ = nullptr;
+  Waiter* tail_ = nullptr;
 };
 
 template <>
@@ -1201,9 +1423,11 @@ WaitResult SignalAndWait(WaitHandle* wait_handle_to_signal,
   if (is_alertable) {
     alertable_state_ = true;
   }
-  if (posix_wait_handle_to_signal->condition().Signal()) {
-    result = posix_wait_handle_to_wait_on->condition().Wait(timeout);
-  }
+  // (z163, XenDroid port) route through the wait target so an auto-reset
+  // event can hand the token to this waiter via its FIFO queue, closing the
+  // lost-wakeup gap of a plain signal-then-wait.
+  result = posix_wait_handle_to_wait_on->condition().SignalAndWaitOn(
+      &posix_wait_handle_to_signal->condition(), timeout);
   if (is_alertable) {
     alertable_state_ = false;
   }

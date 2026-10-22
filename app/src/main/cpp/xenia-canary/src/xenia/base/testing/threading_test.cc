@@ -1201,6 +1201,223 @@ TEST_CASE("Test Thread QueueUserCallback", "[thread]") {
   // callbacks.
 }
 
+TEST_CASE("Auto-Reset Event Set Hands Off to Queued Waiter", "[event]") {
+  // NT hand-off semantics: a Set is delivered to an already-queued waiter,
+  // so the setter's own subsequent wait cannot reclaim its own signal.
+  auto evt = Event::CreateAutoResetEvent(false);
+  REQUIRE(evt);
+
+  std::atomic_int state(0);  // 0=starting, 1=calling Wait
+  std::atomic<WaitResult> waiter_result(WaitResult::kFailed);
+  auto waiter = std::thread([&] {
+    state = 1;
+    waiter_result = Wait(evt.get(), false, 2s);
+  });
+  REQUIRE(spin_wait_for(1s, [&] { return state == 1; }));
+  // Give the waiter time to enqueue on the event.
+  Sleep(100ms);
+
+  evt->Set();
+  // The token went to the queued waiter, not the latch: a follow-up wait on
+  // the same thread must time out instead of consuming the waiter's token.
+  REQUIRE(Wait(evt.get(), false, 100ms) == WaitResult::kTimeout);
+
+  waiter.join();
+  REQUIRE(waiter_result == WaitResult::kSuccess);
+}
+
+TEST_CASE("Auto-Reset Event Releases One Queued Waiter per Set", "[event]") {
+  // Exactly one queued waiter is released per Set, in FIFO order, and no
+  // token survives the last waiter.
+  auto evt = Event::CreateAutoResetEvent(false);
+  REQUIRE(evt);
+
+  constexpr int kWaiterCount = 4;
+  std::atomic_int queued(0);
+  std::vector<int> woken_order;
+  std::mutex woken_mutex;
+  std::array<std::thread, kWaiterCount> waiters;
+  std::array<std::atomic<WaitResult>, kWaiterCount> results;
+  for (int i = 0; i < kWaiterCount; ++i) {
+    waiters[i] = std::thread([&, i] {
+      queued++;
+      results[i] = Wait(evt.get(), false, 2s);
+      std::lock_guard<std::mutex> lock(woken_mutex);
+      woken_order.push_back(i);
+    });
+    // Serialize the enqueues so the FIFO order is deterministic.
+    REQUIRE(spin_wait_for(1s, [&] { return queued == i + 1; }));
+    Sleep(100ms);
+  }
+
+  for (int i = 0; i < kWaiterCount; ++i) {
+    evt->Set();
+    // Exactly one waiter may return per Set.
+    REQUIRE(spin_wait_for(1s, [&] {
+      std::lock_guard<std::mutex> lock(woken_mutex);
+      return woken_order.size() == size_t(i + 1);
+    }));
+  }
+
+  for (auto& waiter : waiters) {
+    waiter.join();
+  }
+  for (int i = 0; i < kWaiterCount; ++i) {
+    INFO(i);
+    REQUIRE(results[i] == WaitResult::kSuccess);
+  }
+  // Waiters enqueued 0..3 and must be released in that order.
+  for (int i = 0; i < kWaiterCount; ++i) {
+    INFO(i);
+    REQUIRE(woken_order[size_t(i)] == i);
+  }
+  // All Sets were consumed by waiters; nothing latched.
+  REQUIRE(Wait(evt.get(), false, 50ms) == WaitResult::kTimeout);
+}
+
+TEST_CASE("Auto-Reset Event Latch Passes to a Later Waiter", "[event]") {
+  // A Set with no unreleased waiter latches a token even while released
+  // nodes are still linked; a later enqueuer claims the latch when the head
+  // retires instead of hanging on a stale queue.
+  auto evt = Event::CreateAutoResetEvent(false);
+  REQUIRE(evt);
+
+  std::atomic<WaitResult> first_result(WaitResult::kFailed);
+  auto first = std::thread([&] {
+    first_result = Wait(evt.get(), false, 1s);
+  });
+  Sleep(100ms);  // First waiter is queued.
+  evt->Set();    // Token handed to the first waiter.
+  evt->Set();    // Every queued node is released: latches instead.
+
+  std::atomic<WaitResult> second_result(WaitResult::kFailed);
+  auto second = std::thread([&] {
+    second_result = Wait(evt.get(), false, 2s);
+  });
+  second.join();
+  first.join();
+  REQUIRE(first_result == WaitResult::kSuccess);
+  REQUIRE(second_result == WaitResult::kSuccess);
+  // Two Sets, two consumers: nothing may remain.
+  REQUIRE(Wait(evt.get(), false, 50ms) == WaitResult::kTimeout);
+}
+
+TEST_CASE("Signal and Wait Reply Cannot Be Stolen by WaitMultiple",
+          "[event][wait]") {
+  // Regression (z163): SignalAndWait signals then waits on another object;
+  // a reply Set racing that gap used to be stealable by a WaitMultiple
+  // poller, stalling the waiter forever. The waiter must now be registered
+  // before the signal so the reply is handed to it directly.
+  const int kRounds = 200;
+  auto go = Event::CreateAutoResetEvent(false);
+  auto reply = Event::CreateAutoResetEvent(false);
+  auto never = Event::CreateManualResetEvent(false);
+  REQUIRE(go);
+  REQUIRE(reply);
+  REQUIRE(never);
+
+  std::atomic<bool> stop(false);
+  std::atomic<int> stolen(0);
+  auto poller = std::thread([&] {
+    while (!stop.load()) {
+      // Busy-poll the reply event the waiter sleeps on.
+      auto result = WaitAny({reply.get(), never.get()}, false, 0ms);
+      if (result.first == WaitResult::kSuccess && result.second == 0) {
+        stolen++;
+      }
+    }
+  });
+
+  auto replier = std::thread([&] {
+    for (int i = 0; i < kRounds; ++i) {
+      if (Wait(go.get(), false, 5s) != WaitResult::kSuccess) {
+        return;
+      }
+      reply->Set();
+    }
+  });
+
+  for (int i = 0; i < kRounds; ++i) {
+    INFO(i);
+    REQUIRE(SignalAndWait(go.get(), reply.get(), false, 2s) ==
+            WaitResult::kSuccess);
+  }
+
+  replier.join();
+  stop = true;
+  poller.join();
+  // The waiter is queued before its signal, so the reply token is never
+  // visible to the poller.
+  REQUIRE(stolen == 0);
+}
+
+TEST_CASE("Signal and Wait Failed Signal Leaves Wait Object Untouched",
+          "[event]") {
+  // Signalling a mutant the caller does not own fails; the waited-on event
+  // must be left untouched and no half-registered waiter may keep later
+  // waits from consuming a Set.
+  auto mutant = Mutant::Create(false);  // Nobody owns it.
+  REQUIRE(mutant);
+  auto reply = Event::CreateAutoResetEvent(false);
+  REQUIRE(reply);
+
+  REQUIRE(SignalAndWait(mutant.get(), reply.get(), false, 50ms) ==
+          WaitResult::kFailed);
+
+  reply->Set();
+  REQUIRE(Wait(reply.get(), false, 50ms) == WaitResult::kSuccess);
+  REQUIRE(Wait(reply.get(), false, 50ms) == WaitResult::kTimeout);
+}
+
+TEST_CASE("Auto-Reset Event Concurrent Waiters and Setters", "[event]") {
+  // Stress: concurrent timed waits racing Sets must never lose or duplicate
+  // a hand-off, must not hang, and the event must stay functional with an
+  // intact queue afterwards.
+  const int kSetterCount = 2;
+  const int kSetsPerSetter = 200;
+  const int kWaiterCount = 4;
+  const int kWaitsPerWaiter = 100;
+  const int kTotalSets = kSetterCount * kSetsPerSetter;
+
+  auto evt = Event::CreateAutoResetEvent(false);
+  REQUIRE(evt);
+
+  std::atomic<int> successes(0);
+  std::vector<std::thread> waiters;
+  for (int w = 0; w < kWaiterCount; ++w) {
+    waiters.emplace_back([&] {
+      for (int i = 0; i < kWaitsPerWaiter; ++i) {
+        if (Wait(evt.get(), false, 50ms) == WaitResult::kSuccess) {
+          successes++;
+        }
+      }
+    });
+  }
+  std::vector<std::thread> setters;
+  for (int s = 0; s < kSetterCount; ++s) {
+    setters.emplace_back([&] {
+      for (int i = 0; i < kSetsPerSetter; ++i) {
+        evt->Set();
+      }
+    });
+  }
+  for (auto& setter : setters) {
+    setter.join();
+  }
+  for (auto& waiter : waiters) {
+    waiter.join();
+  }
+
+  // An auto-reset event coalesces Sets that land while it is already set,
+  // so only bounds are guaranteed under this race.
+  REQUIRE(successes >= 1);
+  REQUIRE(successes <= kTotalSets);
+  // No waiter node leaked: the queue still hands off exactly one token.
+  evt->Set();
+  REQUIRE(Wait(evt.get(), false, 1s) == WaitResult::kSuccess);
+  REQUIRE(Wait(evt.get(), false, 50ms) == WaitResult::kTimeout);
+}
+
 }  // namespace test
 }  // namespace base
 }  // namespace xe
