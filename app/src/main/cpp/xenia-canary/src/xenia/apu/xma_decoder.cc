@@ -409,7 +409,14 @@ void XmaDecoder::Pause() {
   }
   paused_ = true;
 
-  pause_fence_.Wait();
+  // (ax360e) Wake the worker if it's parked idle (no active XMA contexts) so
+  // it can reach the pause check and ack - otherwise the fence deadlocks the
+  // pauser (XenDroid). Bounded wait: with inline decoding nothing signals
+  // the fence, and the pause runs on the Android UI thread.
+  if (work_event_) {
+    work_event_->Set();
+  }
+  pause_fence_.WaitFor(std::chrono::milliseconds(1000));
 }
 
 void XmaDecoder::Resume() {

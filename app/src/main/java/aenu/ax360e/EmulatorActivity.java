@@ -230,57 +230,164 @@ public class EmulatorActivity extends Activity implements SurfaceHolder.Callback
     public void onBackPressed()
     {
 
-        if(delay_dialog!=null)
+        if(delay_dialog!=null||quitting)
             return;
 
-        AlertDialog.Builder ab=new AlertDialog.Builder(this);
-        ab.setPositiveButton(R.string.quit, new DialogInterface.OnClickListener(){
+        // A managed dialog is up (possibly still mid-attach, before its
+        // window could consume this BACK itself): close it. The dismiss
+        // bookkeeping resumes the game.
+        if(menu_dialog!=null){ close_menu(); return; }
 
-            @Override
-            public void onClick(DialogInterface p1, int p2)
-            {
-                p1.cancel();
-                finish();
-            }
-
-
-        });
-
-        /*ab.setNegativeButton("TE", new DialogInterface.OnClickListener(){
-
-                @Override
-                public void onClick(DialogInterface p1, int p2)
-                {
-                    if(Emulator.get.is_running())
-                         Emulator.get.pause();
-                     else if(Emulator.get.is_paused())
-                         Emulator.get.resume();
-                }
-
-
-        });*/
-        //if(Emulator.get.is_running())
-        //Emulator.get.pause();
-        ab.create().show();
+        show_pause_menu();
     }
 
-    /*@Override
-    protected void onPause()
-    {
-        super.onPause();
-        if(started)
-            if(Emulator.get.is_running())
-                Emulator.get.pause();;
+    // ============ pause ownership (XenDroid multi-owner pattern) ============
+    // The game runs only while NO owner wants it paused. Owners:
+    //   owner_menu      - in-game menu dialog up (dialog shown = paused)
+    //   owner_background- activity stopped (onStop/onStart)
+    //   owner_surface   - the render surface is gone; separate from
+    //                     owner_background because onStart can run BEFORE
+    //                     surfaceCreated recreates the surface - resuming in
+    //                     that gap wakes the pipeline into a dead swapchain
+    //   owner_focus     - window focus lost to ANY other window (dialogs,
+    //                     system prompts), debounced 250ms
+    // Pause/Resume are the XenDroid SOFT pause: park the audio/GPU workers
+    // only (fast, synchronous, boot-safe). Repeated calls are no-ops.
+    volatile boolean owner_menu=false;
+    volatile boolean owner_background=false;
+    volatile boolean owner_surface=false;
+    volatile boolean owner_focus=false;
+    // finish() was picked - stay paused through teardown, never auto-resume.
+    volatile boolean quitting=false;
+
+    final android.os.Handler pause_handler=new android.os.Handler();
+    final Runnable focus_pause_run=new Runnable(){
+        @Override
+        public void run(){
+            if(started&&!quitting){
+                owner_focus=true;
+                sync_pause();
+            }
+        }
+    };
+
+    static final String TAG_PAUSE="ax360e-pause";
+    static final int FOCUS_PAUSE_DEBOUNCE_MS=250;
+
+    void sync_pause(){
+        if(!started) return;
+        final boolean want_pause=owner_menu||owner_background||owner_surface
+                ||owner_focus||quitting;
+        android.util.Log.d(TAG_PAUSE,"owners menu="+owner_menu+" bg="+owner_background
+                +" surface="+owner_surface+" focus="+owner_focus
+                +" quitting="+quitting+" -> "
+                +(want_pause?"PAUSE":"RESUME"));
+        if(want_pause)
+            Emulator.get.pause();
+        else
+            Emulator.get.resume();
+    }
+
+    // The pause menu dialog (继续游戏 / 退出).
+    AlertDialog menu_dialog=null;
+
+    // Dialog.dismiss() on a dialog that was never attached (BACK raced the
+    // show()) does NOT fire the dismiss listener, so the bookkeeping runs
+    // manually in that case; menu_dismissed() is idempotent for both paths.
+    void close_menu(){
+        if(menu_dialog==null) return;
+        if(menu_dialog.isShowing()) menu_dialog.dismiss();
+        else menu_dismissed();
+    }
+
+    void menu_dismissed(){
+        if(menu_dialog==null) return;
+        menu_dialog=null;
+        owner_menu=false;
+        sync_pause();
+    }
+
+    // BACK opens the in-game menu: pause immediately (no focus-debounce
+    // lag); dismissing it resumes the game.
+    void show_pause_menu(){
+        if(quitting) return;
+        if(!started) return;   // still booting - BACK is ignored (XenDroid)
+        if(menu_dialog!=null) return;   // reentry guard
+        owner_menu=true;
+        sync_pause();
+
+        AlertDialog.Builder ab=new AlertDialog.Builder(this);
+        ab.setItems(new CharSequence[]{"继续游戏",getString(R.string.quit)}, new DialogInterface.OnClickListener(){
+            @Override
+            public void onClick(DialogInterface p1, int which)
+            {
+                if(which==1){
+                    quitting=true;
+                    finish();
+                }
+                else{
+                    close_menu();
+                }
+            }
+        });
+        AlertDialog d=ab.create();
+        d.setOnDismissListener(new DialogInterface.OnDismissListener(){
+            @Override
+            public void onDismiss(DialogInterface p1)
+            {
+                menu_dismissed();
+            }
+        });
+        menu_dialog=d;
+        d.show();
     }
 
     @Override
-    protected void onResume()
+    protected void onStart()
     {
-        super.onResume();
-        if(started)
-            if(Emulator.get.is_paused())
-                Emulator.get.resume();
-    }*/
+        super.onStart();
+        android.util.Log.d(TAG_PAUSE,"activity start");
+        // Mirror of onStop: the lifecycle owner clears here, but the SURFACE
+        // owner keeps the pause until surfaceCreated - never resume into a
+        // swapchain that does not exist yet, and never run the game behind
+        // an open menu.
+        owner_background=false;
+        sync_pause();
+    }
+
+    @Override
+    protected void onStop()
+    {
+        super.onStop();
+        android.util.Log.d(TAG_PAUSE,"activity stop");
+        // Park the audio/GPU workers when the activity leaves the screen
+        // (home / app switch / screen off) - audio must not keep playing in
+        // the background.
+        owner_background=true;
+        sync_pause();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus)
+    {
+        super.onWindowFocusChanged(hasFocus);
+        if(hasFocus){
+            android.util.Log.d(TAG_PAUSE,"focus gained");
+            pause_handler.removeCallbacks(focus_pause_run);
+            if(owner_focus){
+                owner_focus=false;
+                sync_pause();
+            }
+        }else if(started){
+            android.util.Log.d(TAG_PAUSE,"focus lost");
+            // Any window on top of ours takes the focus away. Debounce
+            // transient losses, then pause: this is what makes
+            // "a dialog is shown -> game paused, dialog hidden -> resumed"
+            // hold for EVERY window, not just the managed ones.
+            pause_handler.removeCallbacks(focus_pause_run);
+            pause_handler.postDelayed(focus_pause_run,FOCUS_PAUSE_DEBOUNCE_MS);
+        }
+    }
 
     @Override
     protected void onDestroy()
@@ -329,8 +436,12 @@ public class EmulatorActivity extends Activity implements SurfaceHolder.Callback
         else{
             Emulator.get.setup_surface(holder.getSurface());
             Emulator.get.surface_changed();
-            if(Emulator.get.is_paused())
-                Emulator.get.resume();
+            // Surface is back (return from background / surface recreate):
+            // resume only if no dialog owns the pause - never run the game
+            // behind an open menu. Earliest SAFE resume point: the swapchain
+            // target exists again.
+            owner_surface=false;
+            sync_pause();
         }
 
     }
@@ -345,6 +456,13 @@ public class EmulatorActivity extends Activity implements SurfaceHolder.Callback
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
         if(!started) return;
+        android.util.Log.d(TAG_PAUSE,"surface destroyed");
+        // Park the pipeline BEFORE the surface teardown so nothing presents
+        // into a released window. owner_surface (not owner_background): it
+        // must survive until surfaceCreated - onStart alone must not resume
+        // into a dead swapchain.
+        owner_surface=true;
+        sync_pause();
         Emulator.get.setup_surface(null);
     }
 

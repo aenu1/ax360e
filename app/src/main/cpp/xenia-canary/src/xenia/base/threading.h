@@ -51,6 +51,32 @@ class Fence {
     cond_.notify_all();
   }
 
+  // (ax360e) Wait for the Fence to be signaled, up to timeout. Returns true
+  // if signaled, false if the timeout elapsed. Used by subsystem Pause()
+  // calls that must not hang the caller (the Android main thread) forever
+  // when a worker cannot reach its pause fence.
+  bool WaitFor(std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    auto signal_state = ++signal_state_;
+    bool signaled = (signal_state & SIGMASK_) != 0;
+    if (!signaled) {
+      signaled = cond_.wait_for(lock, timeout, [this, &signal_state]() {
+        signal_state = signal_state_;
+        return (signal_state & SIGMASK_) != 0;
+      });
+    }
+    if (!signaled) {
+      signal_state_ = --signal_state;
+      return false;
+    }
+    if (signal_state == (1 | SIGMASK_)) {
+      signal_state_ = 0;
+    } else {
+      signal_state_ = --signal_state;
+    }
+    return true;
+  }
+
   // Wait for the Fence to be signaled. Clears the signal on return.
   void Wait() {
     std::unique_lock<std::mutex> lock(mutex_);

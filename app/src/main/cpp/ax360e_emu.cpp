@@ -778,16 +778,12 @@ namespace ae{
         return g_windowed_app_ref->emu->is_paused();
     }
     void pause(){
-        //g_windowed_app_ref->emu->Pause();
-        /*g_windowed_app_ref->app_context().CallInUIThread([]{
-            g_windowed_app_ref->emu->Pause();
-        });*/
+        if(!g_windowed_app_ref) return;
+        g_windowed_app_ref->emu->Pause();
     }
     void resume(){
-        //g_windowed_app_ref->emu->Resume();
-        /*g_windowed_app_ref->app_context().CallInUIThread([]{
-            g_windowed_app_ref->emu->Resume();
-        });*/
+        if(!g_windowed_app_ref) return;
+        g_windowed_app_ref->emu->Resume();
     }
     void quit(){
     }

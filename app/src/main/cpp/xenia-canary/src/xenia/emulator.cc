@@ -1322,59 +1322,38 @@ X_STATUS Emulator::CreateZarchivePackage(
 }
 
 void Emulator::Pause() {
-  if (paused_) {
+  // (ax360e) Soft pause (XenDroid): park the audio and GPU progress
+  // sources only - guest threads settle on their own waits, nothing is
+  // suspended mid-execution. Resume is therefore instant (no freeze/thaw
+  // machinery, no park replay, no clock games).
+  if (!graphics_system_ || !audio_system_) {
+    // Lifecycle pause during the boot splash; nothing to park yet.
     return;
   }
-  paused_ = true;
-
-  // Don't hold the lock on this (so any waits follow through)
-  graphics_system_->Pause();
-  audio_system_->Pause();
-
-  auto lock = global_critical_region::AcquireDirect();
-  auto threads =
-      kernel_state()->object_table()->GetObjectsByType<kernel::XThread>(
-          kernel::XObject::Type::Thread);
-  auto current_thread = kernel::XThread::IsInThread()
-                            ? kernel::XThread::GetCurrentThread()
-                            : nullptr;
-  for (auto thread : threads) {
-    // Don't pause ourself or host threads.
-    if (thread == current_thread || !thread->can_debugger_suspend()) {
-      continue;
-    }
-
-    if (thread->is_running()) {
-      thread->thread()->Suspend(nullptr);
-    }
+  if (paused_.exchange(true)) {
+    return;
   }
 
-  XELOGD("! EMULATOR PAUSED !");
+  // Audio first so an in-flight guest audio callback drains while the CP
+  // and vblank are still live.
+  audio_system_->Pause();
+  // CP first inside graphics, then the vblank gate (see GraphicsSystem).
+  graphics_system_->Pause();
+  XELOGI("! EMULATOR PAUSED !");
 }
 
 void Emulator::Resume() {
-  if (!paused_) {
+  if (!graphics_system_ || !audio_system_) {
     return;
   }
-  paused_ = false;
-  XELOGD("! EMULATOR RESUMED !");
+  if (!paused_.exchange(false)) {
+    return;
+  }
+  XELOGI("! EMULATOR RESUMED !");
 
+  // Reverse of Pause().
   graphics_system_->Resume();
   audio_system_->Resume();
-
-  auto threads =
-      kernel_state()->object_table()->GetObjectsByType<kernel::XThread>(
-          kernel::XObject::Type::Thread);
-  for (auto thread : threads) {
-    if (!thread->can_debugger_suspend()) {
-      // Don't pause host threads.
-      continue;
-    }
-
-    if (!thread->is_running()) {
-      thread->thread()->Resume(nullptr);
-    }
-  }
 }
 
 bool Emulator::SaveToFile(const std::filesystem::path& path) {

@@ -609,6 +609,10 @@ class CommandProcessor {
   uint32_t read_ptr_writeback_ptr_ = 0;
 
   std::unique_ptr<xe::threading::Event> write_ptr_index_event_;
+  // (ax360e) Soft pause: the worker waits on this EVENT (not Thread::Suspend
+  // - a Resume landing before the worker suspends would be lost forever,
+  // while an early event Set() is remembered).
+  std::unique_ptr<xe::threading::Event> pause_resume_event_;
   std::atomic<uint32_t> write_ptr_index_;
 
   uint64_t bin_select_ = 0xFFFFFFFFull;
@@ -617,7 +621,7 @@ class CommandProcessor {
   Shader* active_vertex_shader_ = nullptr;
   Shader* active_pixel_shader_ = nullptr;
 
-  bool paused_ = false;
+  std::atomic<bool> paused_{false};
 
   // By default (such as for tools), post-processing is disabled.
   // "Desired" is for the external thread managing the post-processing effect.

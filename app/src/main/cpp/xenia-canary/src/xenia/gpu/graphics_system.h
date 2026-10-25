@@ -126,7 +126,10 @@ class GraphicsSystem {
   RegisterFile* register_file_;
   std::unique_ptr<CommandProcessor> command_processor_;
 
-  bool paused_ = false;
+  std::atomic<bool> paused_{false};
+  // (ax360e) True while a guest vblank ISR is executing on the vblank
+  // thread; Pause() spins until it clears so no ISR straddles the pause.
+  std::atomic<bool> vblank_dispatch_active_{false};
   // Set on resume; the vblank thread starts its deadline from now.
   std::atomic<bool> vblank_deadline_reset_{false};
 

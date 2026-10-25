@@ -8,6 +8,9 @@
  */
 
 #include "xenia/gpu/graphics_system.h"
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
 
 #include "xenia/base/byte_stream.h"
 #include "xenia/base/clock.h"
@@ -394,13 +397,32 @@ void GraphicsSystem::DispatchInterruptCallback(uint32_t source, uint32_t cpu) {
 void GraphicsSystem::MarkVblank() {
   SCOPE_profile_cpu_f("gpu");
 
-  // Increment vblank counter (so the game sees us making progress).
-  command_processor_->increment_counter();
+  // (ax360e) No guest vblank ISR while paused (a halted GPU raises no
+  // interrupts). Raise the in-dispatch flag BEFORE checking paused_ so
+  // Pause()'s drain fence can't miss an ISR already starting (XenDroid).
+  vblank_dispatch_active_.store(true, std::memory_order_seq_cst);
+  if (!paused_.load(std::memory_order_seq_cst)) {
+    // Increment vblank counter (so the game sees us making progress).
+    command_processor_->increment_counter();
 
-  // TODO(benvanik): we shouldn't need to do the dispatch here, but there's
-  //     something wrong and the CP will block waiting for code that
-  //     needs to be run in the interrupt.
-  DispatchInterruptCallback(0, 2);
+    // (ax360e) Diagnostic heartbeat for the vblank pipeline (test signal:
+    // advancing = running, frozen = paused).
+    static std::atomic<uint32_t> s_vblank_count_{0};
+    if ((s_vblank_count_++ % 300) == 0) {
+      XELOGI("vblank #{} (interrupt_cb={:08X})", s_vblank_count_.load(),
+             interrupt_callback_);
+#if defined(__ANDROID__)
+      __android_log_print(ANDROID_LOG_INFO, "ax360e-vb", "vblank #%u",
+                          s_vblank_count_.load());
+#endif
+    }
+
+    // TODO(benvanik): we shouldn't need to do the dispatch here, but there's
+    //     something wrong and the CP will block waiting for code that
+    //     needs to be run in the interrupt.
+    DispatchInterruptCallback(0, 2);
+  }
+  vblank_dispatch_active_.store(false, std::memory_order_seq_cst);
 }
 
 void GraphicsSystem::ClearCaches() {
@@ -455,16 +477,31 @@ void GraphicsSystem::BeginTracing() {
 void GraphicsSystem::EndTracing() { command_processor_->EndTracing(); }
 
 void GraphicsSystem::Pause() {
-  paused_ = true;
-
+  // (ax360e) CP first: a mid-packet WAIT_REG_MEM can only drain while the
+  // vblank ISR and guest threads are alive. Then gate vblank, fencing any
+  // ISR already in flight (XenDroid soft pause).
   command_processor_->Pause();
+
+  paused_.store(true, std::memory_order_seq_cst);
+  // (ax360e) Bounded drain: an ISR stuck in guest code (e.g. the game's
+  // vsync handler waiting on something) must not hang the caller (the
+  // Android main thread -> ANR). The gate above stops the NEXT ISR; this
+  // one finishes on its own whenever it gets there.
+  const auto drain_deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+  while (vblank_dispatch_active_.load(std::memory_order_seq_cst) &&
+         std::chrono::steady_clock::now() < drain_deadline) {
+    xe::threading::MaybeYield();
+  }
 }
 
 void GraphicsSystem::Resume() {
-  paused_ = false;
-  vblank_deadline_reset_ = true;
-
+  // (ax360e) CP first: the first ISR after resume must see a live command
+  // processor (XenDroid soft pause).
   command_processor_->Resume();
+
+  paused_.store(false, std::memory_order_seq_cst);
+  vblank_deadline_reset_ = true;
 }
 
 bool GraphicsSystem::Save(ByteStream* stream) {

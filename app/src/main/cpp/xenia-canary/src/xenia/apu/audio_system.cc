@@ -411,7 +411,12 @@ void AudioSystem::Pause() {
   paused_ = true;
 
   pending_work_event_->Set();
-  pause_fence_.Wait();
+  // (ax360e) Bounded wait: the worker parks itself at its next wait
+  // checkpoint thanks to paused_, the fence only makes the pause prompt. If
+  // the worker is stuck inside a guest callback (observed: Plants' audio
+  // poller waiting on a guest event) the fence never fires and an unbounded
+  // wait would hang the caller (the Android main thread -> ANR).
+  pause_fence_.WaitFor(std::chrono::milliseconds(1000));
 
   xma_decoder_->Pause();
 }

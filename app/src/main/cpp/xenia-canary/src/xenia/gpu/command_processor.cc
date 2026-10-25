@@ -192,6 +192,7 @@ CommandProcessor::CommandProcessor(GraphicsSystem* graphics_system,
       trace_writer_(graphics_system->memory()->physical_membase()),
       worker_running_(true),
       write_ptr_index_event_(xe::threading::Event::CreateAutoResetEvent(false)),
+      pause_resume_event_(xe::threading::Event::CreateAutoResetEvent(false)),
       write_ptr_index_(0) {
   assert_not_null(write_ptr_index_event_);
 }
@@ -416,27 +417,31 @@ void CommandProcessor::WorkerThreadMain() {
 }
 
 void CommandProcessor::Pause() {
-  if (paused_) {
+  if (paused_.exchange(true)) {
     return;
   }
-  paused_ = true;
 
+  // (ax360e) Event, not thread Suspend(): a Resume() landing before the
+  // worker suspends would be lost forever; an early event Set() is
+  // remembered (XenDroid soft pause).
   threading::Fence fence;
-  CallInThread([&fence]() {
+  CallInThread([this, &fence]() {
     fence.Signal();
-    threading::Thread::GetCurrentThread()->Suspend();
+    threading::Wait(pause_resume_event_.get(), false);
   });
 
-  fence.Wait();
+  // (ax360e) Bounded: a worker wedged in a guest syscall must not hang the
+  // caller; paused_ is already set and the worker parks at the lambda when
+  // it gets there.
+  fence.WaitFor(std::chrono::milliseconds(1000));
 }
 
 void CommandProcessor::Resume() {
-  if (!paused_) {
+  if (!paused_.exchange(false)) {
     return;
   }
-  paused_ = false;
 
-  worker_thread_->thread()->Resume();
+  pause_resume_event_->Set();
 }
 
 bool CommandProcessor::Save(ByteStream* stream) {
