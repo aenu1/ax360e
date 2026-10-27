@@ -1,5 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">主机设置</string>
+    <string name="xbox_settings">Xbox 设置</string>
+    <string name="xbox_settings_profiles_hint">玩家账号：创建、重命名、删除与开机登录</string>
+    <string name="xbox_settings_console_hint">语言、地区与音视频等整机设置</string>
+    <string name="profiles">用户档案</string>
+    <string name="profile_create">创建档案</string>
+    <string name="profile_rename">重命名</string>
+    <string name="profile_delete">删除</string>
+    <string name="profile_delete_confirm">删除档案 \"%s\"？其存档和数据将丢失。</string>
+    <string name="profile_auto_login">开机自动登录</string>
+    <string name="profile_none">无</string>
+    <string name="profile_empty_list">暂无用户档案</string>
+    <string name="profile_invalid_gamertag">玩家代号无效：须以字母开头，只能包含字母、数字和单个空格，最长15个字符</string>
+    <string name="profile_op_failed">操作失败</string>
+    <string name="profile_unreadable">（无法读取）</string>
+
+    <string name="xcs_cat_user">用户</string>
+    <string name="xcs_cat_video">视频</string>
+    <string name="xcs_cat_audio">音频</string>
+    <string name="xcs_cat_network">网络</string>
+    <string name="xcs_language">语言</string>
+    <string name="xcs_country">国家/地区</string>
+    <string name="xcs_av_region">AV 制式</string>
+    <string name="xcs_resolution">分辨率 (HDMI)</string>
+    <string name="xcs_widescreen">宽屏</string>
+    <string name="xcs_dolby_digital">杜比数字</string>
+    <string name="xcs_dolby_pro_logic">杜比定向逻辑</string>
+    <string name="xcs_analog_mono">模拟单声道</string>
+    <string name="xcs_wma_pro">杜比数字 WMA PRO</string>
+    <string name="xcs_low_latency">低延迟（不支持）</string>
+    <string name="xcs_music_volume">音乐音量</string>
+    <string name="xcs_mac_address">MAC 地址</string>
+    <string name="xcs_mac_format">格式：AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>英语</item>
+        <item>日语</item>
+        <item>德语</item>
+        <item>法语</item>
+        <item>西班牙语</item>
+        <item>意大利语</item>
+        <item>韩语</item>
+        <item>繁体中文</item>
+        <item>葡萄牙语</item>
+        <item>波兰语</item>
+        <item>俄语</item>
+        <item>瑞典语</item>
+        <item>土耳其语</item>
+        <item>挪威语</item>
+        <item>荷兰语</item>
+        <item>简体中文</item>
+    </string-array>
     <string name="es_config">配置</string>
     <string name="es_config_defaults_date">默认日期</string>
     <string name="es_gpu_anisotropic_override">各向异性覆盖</string>

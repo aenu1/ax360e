@@ -1,5 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">تنظیمات کنسول</string>
+    <string name="xbox_settings">تنظیمات Xbox</string>
+    <string name="xbox_settings_profiles_hint">گیمرتگ‌ها: ساخت، تغییر نام، حذف و ورود هنگام راه‌اندازی</string>
+    <string name="xbox_settings_console_hint">تنظیمات زبان، منطقه و صوت/تصویر (برای کل کنسول)</string>
+    <string name="profiles">نمایه‌ها</string>
+    <string name="profile_create">ایجاد نمایه</string>
+    <string name="profile_rename">تغییر نام</string>
+    <string name="profile_delete">حذف</string>
+    <string name="profile_delete_confirm">نمایه \"%s\" حذف شود؟ ذخیره‌ها و داده‌های آن از دست می‌روند.</string>
+    <string name="profile_auto_login">ورود هنگام راه‌اندازی</string>
+    <string name="profile_none">هیچ</string>
+    <string name="profile_empty_list">بدون نمایه</string>
+    <string name="profile_invalid_gamertag">گیمرتگ نامعتبر: باید با یک حرف شروع شود و فقط شامل حروف، اعداد و فاصله‌های تکی باشد (حداکثر ۱۵ نویسه)</string>
+    <string name="profile_op_failed">عملیات ناموفق بود</string>
+    <string name="profile_unreadable">(خوانده نمی‌شود)</string>
+
+    <string name="xcs_cat_user">کاربر</string>
+    <string name="xcs_cat_video">ویدیو</string>
+    <string name="xcs_cat_audio">صدا</string>
+    <string name="xcs_cat_network">شبکه</string>
+    <string name="xcs_language">زبان</string>
+    <string name="xcs_country">کشور</string>
+    <string name="xcs_av_region">منطقه AV</string>
+    <string name="xcs_resolution">وضوح (HDMI)</string>
+    <string name="xcs_widescreen">صفحه عریض</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">تأخیر کم (پشتیبانی نمی‌شود)</string>
+    <string name="xcs_music_volume">بلندی صدای موسیقی</string>
+    <string name="xcs_mac_address">نشانی MAC</string>
+    <string name="xcs_mac_format">قالب: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>انگلیسی</item>
+        <item>ژاپنی</item>
+        <item>آلمانی</item>
+        <item>فرانسوی</item>
+        <item>اسپانیایی</item>
+        <item>ایتالیایی</item>
+        <item>کره‌ای</item>
+        <item>چینی سنتی</item>
+        <item>پرتغالی</item>
+        <item>لهستانی</item>
+        <item>روسی</item>
+        <item>سوئدی</item>
+        <item>ترکی</item>
+        <item>نروژی</item>
+        <item>هلندی</item>
+        <item>چینی ساده‌شده</item>
+    </string-array>
 
     <string name="es_config">پیکربندی</string>
     <string name="es_config_defaults_date">تاریخ مقادیر پیش‌فرض</string>

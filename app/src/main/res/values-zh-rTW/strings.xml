@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">主機設定</string>
+    <string name="xbox_settings">Xbox 設定</string>
+    <string name="xbox_settings_profiles_hint">玩家帳號：建立、重新命名、刪除與開機登入</string>
+    <string name="xbox_settings_console_hint">語言、地區與音視訊等主機設定</string>
+    <string name="profiles">使用者檔案</string>
+    <string name="profile_create">建立檔案</string>
+    <string name="profile_rename">重新命名</string>
+    <string name="profile_delete">刪除</string>
+    <string name="profile_delete_confirm">刪除檔案 \"%s\"？其存檔和資料將遺失。</string>
+    <string name="profile_auto_login">開機自動登入</string>
+    <string name="profile_none">無</string>
+    <string name="profile_empty_list">暫無使用者檔案</string>
+    <string name="profile_invalid_gamertag">玩家代號無效：須以字母開頭，只能包含字母、數字和單一空格，最長15個字元</string>
+    <string name="profile_op_failed">操作失敗</string>
+    <string name="profile_unreadable">（無法讀取）</string>
+
+    <string name="xcs_cat_user">使用者</string>
+    <string name="xcs_cat_video">影像</string>
+    <string name="xcs_cat_audio">音訊</string>
+    <string name="xcs_cat_network">網路</string>
+    <string name="xcs_language">語言</string>
+    <string name="xcs_country">國家/地區</string>
+    <string name="xcs_av_region">AV 區域</string>
+    <string name="xcs_resolution">解析度 (HDMI)</string>
+    <string name="xcs_widescreen">寬螢幕</string>
+    <string name="xcs_dolby_digital">杜比數位</string>
+    <string name="xcs_dolby_pro_logic">杜比定向邏輯</string>
+    <string name="xcs_analog_mono">類比單聲道</string>
+    <string name="xcs_wma_pro">杜比數位 WMA PRO</string>
+    <string name="xcs_low_latency">低延遲（不支援）</string>
+    <string name="xcs_music_volume">音樂音量</string>
+    <string name="xcs_mac_address">MAC 位址</string>
+    <string name="xcs_mac_format">格式：AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>英語</item>
+        <item>日語</item>
+        <item>德語</item>
+        <item>法語</item>
+        <item>西班牙語</item>
+        <item>義大利語</item>
+        <item>韓語</item>
+        <item>繁體中文</item>
+        <item>葡萄牙語</item>
+        <item>波蘭語</item>
+        <item>俄語</item>
+        <item>瑞典語</item>
+        <item>土耳其語</item>
+        <item>挪威語</item>
+        <item>荷蘭語</item>
+        <item>簡體中文</item>
+    </string-array>
+
     <string name="es_config">設定</string>
     <string name="es_config_defaults_date">預設日期</string>
     <string name="es_gpu_anisotropic_override">各向異性覆寫</string>

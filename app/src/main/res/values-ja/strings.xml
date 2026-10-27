@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">本体設定</string>
+    <string name="xbox_settings">Xbox 設定</string>
+    <string name="xbox_settings_profiles_hint">ゲーマータグ：作成、名前変更、削除、起動時のサインイン</string>
+    <string name="xbox_settings_console_hint">言語、地域、音声/映像の設定（本体全体）</string>
+    <string name="profiles">プロフィール</string>
+    <string name="profile_create">プロフィールの作成</string>
+    <string name="profile_rename">名前の変更</string>
+    <string name="profile_delete">削除</string>
+    <string name="profile_delete_confirm">プロフィール \"%s\" を削除しますか？セーブデータと個人データは失われます。</string>
+    <string name="profile_auto_login">起動時にサインイン</string>
+    <string name="profile_none">なし</string>
+    <string name="profile_empty_list">プロフィールがありません</string>
+    <string name="profile_invalid_gamertag">無効なゲーマータグ：先頭は英字で、英数字と単一のスペースのみ使用できます（最大15文字）</string>
+    <string name="profile_op_failed">操作に失敗しました</string>
+    <string name="profile_unreadable">（読み取り不可）</string>
+
+    <string name="xcs_cat_user">ユーザー</string>
+    <string name="xcs_cat_video">ビデオ</string>
+    <string name="xcs_cat_audio">オーディオ</string>
+    <string name="xcs_cat_network">ネットワーク</string>
+    <string name="xcs_language">言語</string>
+    <string name="xcs_country">国</string>
+    <string name="xcs_av_region">AV 地域</string>
+    <string name="xcs_resolution">解像度 (HDMI)</string>
+    <string name="xcs_widescreen">ワイドスクリーン</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">低遅延（非対応）</string>
+    <string name="xcs_music_volume">音楽の音量</string>
+    <string name="xcs_mac_address">MAC アドレス</string>
+    <string name="xcs_mac_format">形式：AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>英語</item>
+        <item>日本語</item>
+        <item>ドイツ語</item>
+        <item>フランス語</item>
+        <item>スペイン語</item>
+        <item>イタリア語</item>
+        <item>韓国語</item>
+        <item>繁体字中国語</item>
+        <item>ポルトガル語</item>
+        <item>ポーランド語</item>
+        <item>ロシア語</item>
+        <item>スウェーデン語</item>
+        <item>トルコ語</item>
+        <item>ノルウェー語</item>
+        <item>オランダ語</item>
+        <item>簡体字中国語</item>
+    </string-array>
+
     <string name="es_config">設定</string>
     <string name="es_config_defaults_date">デフォルト日付</string>
     <string name="es_gpu_anisotropic_override">異方性オーバーライド</string>

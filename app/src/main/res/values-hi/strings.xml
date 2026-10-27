@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">कंसोल सेटिंग्स</string>
+    <string name="xbox_settings">Xbox सेटिंग्स</string>
+    <string name="xbox_settings_profiles_hint">गेमरटैग: बनाएँ, नाम बदलें, हटाएँ और बूट पर साइन-इन करें</string>
+    <string name="xbox_settings_console_hint">भाषा, क्षेत्र और ऑडियो/वीडियो सेटिंग्स (पूरे कंसोल के लिए)</string>
+    <string name="profiles">प्रोफ़ाइल</string>
+    <string name="profile_create">प्रोफ़ाइल बनाएँ</string>
+    <string name="profile_rename">नाम बदलें</string>
+    <string name="profile_delete">हटाएँ</string>
+    <string name="profile_delete_confirm">प्रोफ़ाइल \"%s\" हटाएँ? इसके सेव और डेटा खो जाएँगे।</string>
+    <string name="profile_auto_login">बूट पर साइन इन करें</string>
+    <string name="profile_none">कोई नहीं</string>
+    <string name="profile_empty_list">कोई प्रोफ़ाइल नहीं</string>
+    <string name="profile_invalid_gamertag">अमान्य गेमरटैग: किसी अक्षर से शुरू होना चाहिए और केवल अक्षर, संख्याएँ और एकल स्पेस हो सकते हैं (अधिकतम 15 वर्ण)</string>
+    <string name="profile_op_failed">ऑपरेशन विफल रहा</string>
+    <string name="profile_unreadable">(अपठनीय)</string>
+
+    <string name="xcs_cat_user">उपयोगकर्ता</string>
+    <string name="xcs_cat_video">वीडियो</string>
+    <string name="xcs_cat_audio">ऑडियो</string>
+    <string name="xcs_cat_network">नेटवर्क</string>
+    <string name="xcs_language">भाषा</string>
+    <string name="xcs_country">देश</string>
+    <string name="xcs_av_region">AV क्षेत्र</string>
+    <string name="xcs_resolution">रिज़ॉल्यूशन (HDMI)</string>
+    <string name="xcs_widescreen">वाइडस्क्रीन</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">कम विलंबता (असमर्थित)</string>
+    <string name="xcs_music_volume">संगीत वॉल्यूम</string>
+    <string name="xcs_mac_address">MAC पता</string>
+    <string name="xcs_mac_format">प्रारूप: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>अंग्रेज़ी</item>
+        <item>जापानी</item>
+        <item>जर्मन</item>
+        <item>फ़्रेंच</item>
+        <item>स्पेनिश</item>
+        <item>इतालवी</item>
+        <item>कोरियाई</item>
+        <item>पारंपरिक चीनी</item>
+        <item>पुर्तगाली</item>
+        <item>पोलिश</item>
+        <item>रूसी</item>
+        <item>स्वीडिश</item>
+        <item>तुर्की</item>
+        <item>नॉर्वेजियन</item>
+        <item>डच</item>
+        <item>सरलीकृत चीनी</item>
+    </string-array>
+
     <string name="es_config">कॉन्फ़िग</string>
     <string name="es_config_defaults_date">डिफ़ॉल्ट तिथि</string>
     <string name="es_gpu_anisotropic_override">एनिसोट्रोपिक ओवरराइड</string>

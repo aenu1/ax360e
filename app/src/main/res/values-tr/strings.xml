@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Konsol Ayarları</string>
+    <string name="xbox_settings">Xbox Ayarları</string>
+    <string name="xbox_settings_profiles_hint">Gamertag\'ler: oluşturma, yeniden adlandırma, silme ve açılışta oturum açma</string>
+    <string name="xbox_settings_console_hint">Dil, bölge ve ses/görüntü ayarları (konsol geneli)</string>
+    <string name="profiles">Profiller</string>
+    <string name="profile_create">Profil Oluştur</string>
+    <string name="profile_rename">Yeniden Adlandır</string>
+    <string name="profile_delete">Sil</string>
+    <string name="profile_delete_confirm">\"%s\" profili silinsin mi? Kayıtları ve verileri kaybolacak.</string>
+    <string name="profile_auto_login">Açılışta oturum aç</string>
+    <string name="profile_none">Yok</string>
+    <string name="profile_empty_list">Profil yok</string>
+    <string name="profile_invalid_gamertag">Geçersiz gamertag: bir harfle başlamalı ve yalnızca harf, rakam ve tek boşluk içermelidir (en fazla 15 karakter)</string>
+    <string name="profile_op_failed">İşlem başarısız oldu</string>
+    <string name="profile_unreadable">(okunamıyor)</string>
+
+    <string name="xcs_cat_user">Kullanıcı</string>
+    <string name="xcs_cat_video">Video</string>
+    <string name="xcs_cat_audio">Ses</string>
+    <string name="xcs_cat_network">Ağ</string>
+    <string name="xcs_language">Dil</string>
+    <string name="xcs_country">Ülke</string>
+    <string name="xcs_av_region">AV Bölgesi</string>
+    <string name="xcs_resolution">Çözünürlük (HDMI)</string>
+    <string name="xcs_widescreen">Geniş Ekran</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Düşük Gecikme (desteklenmiyor)</string>
+    <string name="xcs_music_volume">Müzik Ses Düzeyi</string>
+    <string name="xcs_mac_address">MAC Adresi</string>
+    <string name="xcs_mac_format">Biçim: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>İngilizce</item>
+        <item>Japonca</item>
+        <item>Almanca</item>
+        <item>Fransızca</item>
+        <item>İspanyolca</item>
+        <item>İtalyanca</item>
+        <item>Korece</item>
+        <item>Geleneksel Çince</item>
+        <item>Portekizce</item>
+        <item>Lehçe</item>
+        <item>Rusça</item>
+        <item>İsveççe</item>
+        <item>Türkçe</item>
+        <item>Norveççe</item>
+        <item>Felemenkçe</item>
+        <item>Basitleştirilmiş Çince</item>
+    </string-array>
+
     <string name="es_config">Yapılandırma</string>
     <string name="es_config_defaults_date">Varsayılan Tarih</string>
     <string name="es_gpu_anisotropic_override">Anizotropik Geçersiz Kılma</string>

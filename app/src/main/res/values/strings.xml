@@ -1,6 +1,58 @@
 <resources>
     <string name="app_name">aX360e Free</string>
 
+    <string name="console_settings">Console Settings</string>
+    <string name="xbox_settings">Xbox Settings</string>
+    <string name="xbox_settings_profiles_hint">Gamertags: create, rename, delete and sign-in on boot</string>
+    <string name="xbox_settings_console_hint">Language, region and audio/video settings (console-wide)</string>
+    <string name="profiles">Profiles</string>
+    <string name="profile_create">Create Profile</string>
+    <string name="profile_rename">Rename</string>
+    <string name="profile_delete">Delete</string>
+    <string name="profile_delete_confirm">Delete profile \"%s\"? Its saves and data will be lost.</string>
+    <string name="profile_auto_login">Sign in on boot</string>
+    <string name="profile_none">None</string>
+    <string name="profile_empty_list">No profiles</string>
+    <string name="profile_invalid_gamertag">Invalid gamertag: must start with a letter and contain only letters, numbers and single spaces (max 15 characters)</string>
+    <string name="profile_op_failed">Operation failed</string>
+    <string name="profile_unreadable">(unreadable)</string>
+
+    <string name="xcs_cat_user">User</string>
+    <string name="xcs_cat_video">Video</string>
+    <string name="xcs_cat_audio">Audio</string>
+    <string name="xcs_cat_network">Network</string>
+    <string name="xcs_language">Language</string>
+    <string name="xcs_country">Country</string>
+    <string name="xcs_av_region">AV Region</string>
+    <string name="xcs_resolution">Resolution (HDMI)</string>
+    <string name="xcs_widescreen">Widescreen</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Low Latency (unsupported)</string>
+    <string name="xcs_music_volume">Music Volume</string>
+    <string name="xcs_mac_address">MAC Address</string>
+    <string name="xcs_mac_format">Format: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>English</item>
+        <item>Japanese</item>
+        <item>German</item>
+        <item>French</item>
+        <item>Spanish</item>
+        <item>Italian</item>
+        <item>Korean</item>
+        <item>Traditional Chinese</item>
+        <item>Portuguese</item>
+        <item>Polish</item>
+        <item>Russian</item>
+        <item>Swedish</item>
+        <item>Turkish</item>
+        <item>Norwegian</item>
+        <item>Dutch</item>
+        <item>Simplified Chinese</item>
+    </string-array>
+
     <string name="es_config">Config</string>
     <string name="es_config_defaults_date">Defaults Date</string>
     <string name="es_gpu_anisotropic_override">Anisotropic Override</string>

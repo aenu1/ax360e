@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">إعدادات الجهاز</string>
+    <string name="xbox_settings">إعدادات Xbox</string>
+    <string name="xbox_settings_profiles_hint">بطاقات اللاعب: الإنشاء وإعادة التسمية والحذف وتسجيل الدخول عند بدء التشغيل</string>
+    <string name="xbox_settings_console_hint">إعدادات اللغة والمنطقة والصوت/الفيديو (لجميع أنحاء الجهاز)</string>
+    <string name="profiles">الملفات الشخصية</string>
+    <string name="profile_create">إنشاء ملف شخصي</string>
+    <string name="profile_rename">إعادة تسمية</string>
+    <string name="profile_delete">حذف</string>
+    <string name="profile_delete_confirm">حذف الملف الشخصي \"%s\"؟ ستفقد محفوظاته وبياناته.</string>
+    <string name="profile_auto_login">تسجيل الدخول عند بدء التشغيل</string>
+    <string name="profile_none">بلا</string>
+    <string name="profile_empty_list">لا توجد ملفات شخصية</string>
+    <string name="profile_invalid_gamertag">بطاقة لاعب غير صالحة: يجب أن تبدأ بحرف وتحتوي فقط على أحرف وأرقام ومسافات مفردة (15 حرفًا كحد أقصى)</string>
+    <string name="profile_op_failed">فشلت العملية</string>
+    <string name="profile_unreadable">(غير قابل للقراءة)</string>
+
+    <string name="xcs_cat_user">المستخدم</string>
+    <string name="xcs_cat_video">الفيديو</string>
+    <string name="xcs_cat_audio">الصوت</string>
+    <string name="xcs_cat_network">الشبكة</string>
+    <string name="xcs_language">اللغة</string>
+    <string name="xcs_country">البلد</string>
+    <string name="xcs_av_region">منطقة AV</string>
+    <string name="xcs_resolution">الدقة (HDMI)</string>
+    <string name="xcs_widescreen">شاشة عريضة</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">زمن انتقال منخفض (غير مدعوم)</string>
+    <string name="xcs_music_volume">مستوى صوت الموسيقى</string>
+    <string name="xcs_mac_address">عنوان MAC</string>
+    <string name="xcs_mac_format">التنسيق: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>الإنجليزية</item>
+        <item>اليابانية</item>
+        <item>الألمانية</item>
+        <item>الفرنسية</item>
+        <item>الإسبانية</item>
+        <item>الإيطالية</item>
+        <item>الكورية</item>
+        <item>الصينية التقليدية</item>
+        <item>البرتغالية</item>
+        <item>البولندية</item>
+        <item>الروسية</item>
+        <item>السويدية</item>
+        <item>التركية</item>
+        <item>النرويجية</item>
+        <item>الهولندية</item>
+        <item>الصينية المبسطة</item>
+    </string-array>
+
     <string name="es_config">التكوين</string>
     <string name="es_config_defaults_date">تاريخ الإعدادات الافتراضية</string>
     <string name="es_gpu_anisotropic_override">تجاوز التصفية غير المتساوية</string>

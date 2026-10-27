@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Tetapan Konsol</string>
+    <string name="xbox_settings">Tetapan Xbox</string>
+    <string name="xbox_settings_profiles_hint">Gamertag: cipta, namakan semula, padam dan log masuk semasa but</string>
+    <string name="xbox_settings_console_hint">Tetapan bahasa, wilayah dan audio/video (seluruh konsol)</string>
+    <string name="profiles">Profil</string>
+    <string name="profile_create">Cipta Profil</string>
+    <string name="profile_rename">Namakan Semula</string>
+    <string name="profile_delete">Padam</string>
+    <string name="profile_delete_confirm">Padam profil \"%s\"? Simpanan dan datanya akan hilang.</string>
+    <string name="profile_auto_login">Log masuk semasa but</string>
+    <string name="profile_none">Tiada</string>
+    <string name="profile_empty_list">Tiada profil</string>
+    <string name="profile_invalid_gamertag">Gamertag tidak sah: mesti bermula dengan huruf dan hanya mengandungi huruf, nombor dan ruang tunggal (maks. 15 aksara)</string>
+    <string name="profile_op_failed">Operasi gagal</string>
+    <string name="profile_unreadable">(tidak boleh dibaca)</string>
+
+    <string name="xcs_cat_user">Pengguna</string>
+    <string name="xcs_cat_video">Video</string>
+    <string name="xcs_cat_audio">Audio</string>
+    <string name="xcs_cat_network">Rangkaian</string>
+    <string name="xcs_language">Bahasa</string>
+    <string name="xcs_country">Negara</string>
+    <string name="xcs_av_region">Wilayah AV</string>
+    <string name="xcs_resolution">Resolusi (HDMI)</string>
+    <string name="xcs_widescreen">Skrin Lebar</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Kependaman Rendah (tidak disokong)</string>
+    <string name="xcs_music_volume">Kelantangan Muzik</string>
+    <string name="xcs_mac_address">Alamat MAC</string>
+    <string name="xcs_mac_format">Format: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>Inggeris</item>
+        <item>Jepun</item>
+        <item>Jerman</item>
+        <item>Perancis</item>
+        <item>Sepanyol</item>
+        <item>Itali</item>
+        <item>Korea</item>
+        <item>Cina Tradisional</item>
+        <item>Portugis</item>
+        <item>Poland</item>
+        <item>Rusia</item>
+        <item>Sweden</item>
+        <item>Turki</item>
+        <item>Norway</item>
+        <item>Belanda</item>
+        <item>Cina Ringkas</item>
+    </string-array>
+
     <string name="es_config">Konfigurasi</string>
     <string name="es_config_defaults_date">Tarikh Lalai</string>
     <string name="es_gpu_anisotropic_override">Gantian Anisotropik</string>

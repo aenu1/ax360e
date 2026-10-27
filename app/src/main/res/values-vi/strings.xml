@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Cài đặt máy chơi game</string>
+    <string name="xbox_settings">Cài đặt Xbox</string>
+    <string name="xbox_settings_profiles_hint">Gamertag: tạo, đổi tên, xóa và đăng nhập khi khởi động</string>
+    <string name="xbox_settings_console_hint">Cài đặt ngôn ngữ, khu vực và âm thanh/hình ảnh (toàn máy)</string>
+    <string name="profiles">Hồ sơ</string>
+    <string name="profile_create">Tạo hồ sơ</string>
+    <string name="profile_rename">Đổi tên</string>
+    <string name="profile_delete">Xóa</string>
+    <string name="profile_delete_confirm">Xóa hồ sơ \"%s\"? Bản lưu và dữ liệu của hồ sơ này sẽ bị mất.</string>
+    <string name="profile_auto_login">Đăng nhập khi khởi động</string>
+    <string name="profile_none">Không</string>
+    <string name="profile_empty_list">Không có hồ sơ</string>
+    <string name="profile_invalid_gamertag">Gamertag không hợp lệ: phải bắt đầu bằng chữ cái và chỉ chứa chữ cái, chữ số và khoảng trắng đơn (tối đa 15 ký tự)</string>
+    <string name="profile_op_failed">Thao tác thất bại</string>
+    <string name="profile_unreadable">(không đọc được)</string>
+
+    <string name="xcs_cat_user">Người dùng</string>
+    <string name="xcs_cat_video">Hình ảnh</string>
+    <string name="xcs_cat_audio">Âm thanh</string>
+    <string name="xcs_cat_network">Mạng</string>
+    <string name="xcs_language">Ngôn ngữ</string>
+    <string name="xcs_country">Quốc gia</string>
+    <string name="xcs_av_region">Khu vực AV</string>
+    <string name="xcs_resolution">Độ phân giải (HDMI)</string>
+    <string name="xcs_widescreen">Màn hình rộng</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Độ trễ thấp (không được hỗ trợ)</string>
+    <string name="xcs_music_volume">Âm lượng nhạc</string>
+    <string name="xcs_mac_address">Địa chỉ MAC</string>
+    <string name="xcs_mac_format">Định dạng: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>Tiếng Anh</item>
+        <item>Tiếng Nhật</item>
+        <item>Tiếng Đức</item>
+        <item>Tiếng Pháp</item>
+        <item>Tiếng Tây Ban Nha</item>
+        <item>Tiếng Ý</item>
+        <item>Tiếng Hàn</item>
+        <item>Tiếng Trung phồn thể</item>
+        <item>Tiếng Bồ Đào Nha</item>
+        <item>Tiếng Ba Lan</item>
+        <item>Tiếng Nga</item>
+        <item>Tiếng Thụy Điển</item>
+        <item>Tiếng Thổ Nhĩ Kỳ</item>
+        <item>Tiếng Na Uy</item>
+        <item>Tiếng Hà Lan</item>
+        <item>Tiếng Trung giản thể</item>
+    </string-array>
+
     <string name="es_config">Cấu hình</string>
     <string name="es_config_defaults_date">Ngày mặc định</string>
     <string name="es_gpu_anisotropic_override">Ghi đè Anisotropic</string>

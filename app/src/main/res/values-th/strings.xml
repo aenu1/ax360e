@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">การตั้งค่าคอนโซล</string>
+    <string name="xbox_settings">การตั้งค่า Xbox</string>
+    <string name="xbox_settings_profiles_hint">Gamertag: สร้าง เปลี่ยนชื่อ ลบ และลงชื่อเข้าใช้เมื่อเปิดเครื่อง</string>
+    <string name="xbox_settings_console_hint">การตั้งค่าภาษา ภูมิภาค และเสียง/วิดีโอ (ทั้งคอนโซล)</string>
+    <string name="profiles">โปรไฟล์</string>
+    <string name="profile_create">สร้างโปรไฟล์</string>
+    <string name="profile_rename">เปลี่ยนชื่อ</string>
+    <string name="profile_delete">ลบ</string>
+    <string name="profile_delete_confirm">ลบโปรไฟล์ \"%s\" หรือไม่ ข้อมูลเซฟและข้อมูลอื่น ๆ จะหายไป</string>
+    <string name="profile_auto_login">ลงชื่อเข้าใช้เมื่อเปิดเครื่อง</string>
+    <string name="profile_none">ไม่มี</string>
+    <string name="profile_empty_list">ไม่มีโปรไฟล์</string>
+    <string name="profile_invalid_gamertag">Gamertag ไม่ถูกต้อง: ต้องขึ้นต้นด้วยตัวอักษร และใช้ได้เฉพาะตัวอักษร ตัวเลข และเว้นวรรคเดี่ยว (สูงสุด 15 ตัวอักษร)</string>
+    <string name="profile_op_failed">การดำเนินการล้มเหลว</string>
+    <string name="profile_unreadable">(อ่านไม่ได้)</string>
+
+    <string name="xcs_cat_user">ผู้ใช้</string>
+    <string name="xcs_cat_video">วิดีโอ</string>
+    <string name="xcs_cat_audio">เสียง</string>
+    <string name="xcs_cat_network">เครือข่าย</string>
+    <string name="xcs_language">ภาษา</string>
+    <string name="xcs_country">ประเทศ</string>
+    <string name="xcs_av_region">ภูมิภาค AV</string>
+    <string name="xcs_resolution">ความละเอียด (HDMI)</string>
+    <string name="xcs_widescreen">จอกว้าง</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">ความหน่วงต่ำ (ไม่รองรับ)</string>
+    <string name="xcs_music_volume">ระดับเสียงเพลง</string>
+    <string name="xcs_mac_address">ที่อยู่ MAC</string>
+    <string name="xcs_mac_format">รูปแบบ: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>อังกฤษ</item>
+        <item>ญี่ปุ่น</item>
+        <item>เยอรมัน</item>
+        <item>ฝรั่งเศส</item>
+        <item>สเปน</item>
+        <item>อิตาลี</item>
+        <item>เกาหลี</item>
+        <item>จีนตัวเต็ม</item>
+        <item>โปรตุเกส</item>
+        <item>โปแลนด์</item>
+        <item>รัสเซีย</item>
+        <item>สวีเดน</item>
+        <item>ตุรกี</item>
+        <item>นอร์เวย์</item>
+        <item>ดัตช์</item>
+        <item>จีนตัวย่อ</item>
+    </string-array>
+
     <string name="es_config">การตั้งค่า</string>
     <string name="es_config_defaults_date">วันที่ค่าเริ่มต้น</string>
     <string name="es_gpu_anisotropic_override">การแทนที่แอนไอโซทรอปิก</string>

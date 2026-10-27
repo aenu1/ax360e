@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Pengaturan Konsol</string>
+    <string name="xbox_settings">Pengaturan Xbox</string>
+    <string name="xbox_settings_profiles_hint">Gamertag: buat, ganti nama, hapus, dan masuk saat boot</string>
+    <string name="xbox_settings_console_hint">Pengaturan bahasa, wilayah, dan audio/video (seluruh konsol)</string>
+    <string name="profiles">Profil</string>
+    <string name="profile_create">Buat Profil</string>
+    <string name="profile_rename">Ganti Nama</string>
+    <string name="profile_delete">Hapus</string>
+    <string name="profile_delete_confirm">Hapus profil \"%s\"? Data simpanan dan datanya akan hilang.</string>
+    <string name="profile_auto_login">Masuk saat boot</string>
+    <string name="profile_none">Tidak ada</string>
+    <string name="profile_empty_list">Tidak ada profil</string>
+    <string name="profile_invalid_gamertag">Gamertag tidak valid: harus diawali huruf dan hanya berisi huruf, angka, dan spasi tunggal (maks. 15 karakter)</string>
+    <string name="profile_op_failed">Operasi gagal</string>
+    <string name="profile_unreadable">(tidak dapat dibaca)</string>
+
+    <string name="xcs_cat_user">Pengguna</string>
+    <string name="xcs_cat_video">Video</string>
+    <string name="xcs_cat_audio">Audio</string>
+    <string name="xcs_cat_network">Jaringan</string>
+    <string name="xcs_language">Bahasa</string>
+    <string name="xcs_country">Negara</string>
+    <string name="xcs_av_region">Region AV</string>
+    <string name="xcs_resolution">Resolusi (HDMI)</string>
+    <string name="xcs_widescreen">Layar Lebar</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Latensi Rendah (tidak didukung)</string>
+    <string name="xcs_music_volume">Volume Musik</string>
+    <string name="xcs_mac_address">Alamat MAC</string>
+    <string name="xcs_mac_format">Format: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>Inggris</item>
+        <item>Jepang</item>
+        <item>Jerman</item>
+        <item>Prancis</item>
+        <item>Spanyol</item>
+        <item>Italia</item>
+        <item>Korea</item>
+        <item>Mandarin Tradisional</item>
+        <item>Portugis</item>
+        <item>Polandia</item>
+        <item>Rusia</item>
+        <item>Swedia</item>
+        <item>Turki</item>
+        <item>Norwegia</item>
+        <item>Belanda</item>
+        <item>Mandarin Sederhana</item>
+    </string-array>
+
     <string name="es_config">Konfigurasi</string>
     <string name="es_config_defaults_date">Tanggal Default</string>
     <string name="es_gpu_anisotropic_override">Override Anisotropik</string>

@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">본체 설정</string>
+    <string name="xbox_settings">Xbox 설정</string>
+    <string name="xbox_settings_profiles_hint">게이머태그: 만들기, 이름 변경, 삭제 및 부팅 시 로그인</string>
+    <string name="xbox_settings_console_hint">언어, 지역 및 오디오/비디오 설정(전체 본체)</string>
+    <string name="profiles">프로필</string>
+    <string name="profile_create">프로필 만들기</string>
+    <string name="profile_rename">이름 변경</string>
+    <string name="profile_delete">삭제</string>
+    <string name="profile_delete_confirm">\"%s\" 프로필을 삭제하시겠습니까? 저장 데이터와 관련 데이터가 모두 손실됩니다.</string>
+    <string name="profile_auto_login">부팅 시 로그인</string>
+    <string name="profile_none">없음</string>
+    <string name="profile_empty_list">프로필 없음</string>
+    <string name="profile_invalid_gamertag">잘못된 게이머태그: 문자로 시작해야 하며 문자, 숫자, 단일 공백만 사용할 수 있습니다(최대 15자)</string>
+    <string name="profile_op_failed">작업 실패</string>
+    <string name="profile_unreadable">(읽을 수 없음)</string>
+
+    <string name="xcs_cat_user">사용자</string>
+    <string name="xcs_cat_video">비디오</string>
+    <string name="xcs_cat_audio">오디오</string>
+    <string name="xcs_cat_network">네트워크</string>
+    <string name="xcs_language">언어</string>
+    <string name="xcs_country">국가</string>
+    <string name="xcs_av_region">AV 지역</string>
+    <string name="xcs_resolution">해상도 (HDMI)</string>
+    <string name="xcs_widescreen">와이드스크린</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">낮은 지연 시간(지원되지 않음)</string>
+    <string name="xcs_music_volume">음악 볼륨</string>
+    <string name="xcs_mac_address">MAC 주소</string>
+    <string name="xcs_mac_format">형식: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>영어</item>
+        <item>일본어</item>
+        <item>독일어</item>
+        <item>프랑스어</item>
+        <item>스페인어</item>
+        <item>이탈리아어</item>
+        <item>한국어</item>
+        <item>중국어 번체</item>
+        <item>포르투갈어</item>
+        <item>폴란드어</item>
+        <item>러시아어</item>
+        <item>스웨덴어</item>
+        <item>터키어</item>
+        <item>노르웨이어</item>
+        <item>네덜란드어</item>
+        <item>중국어 간체</item>
+    </string-array>
+
     <string name="es_config">설정</string>
     <string name="es_config_defaults_date">기본값 날짜</string>
     <string name="es_gpu_anisotropic_override">이방성 오버라이드</string>

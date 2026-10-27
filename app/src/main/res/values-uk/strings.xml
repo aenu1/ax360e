@@ -1,5 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Налаштування консолі</string>
+    <string name="xbox_settings">Налаштування Xbox</string>
+    <string name="xbox_settings_profiles_hint">Ґаммертеґи: створення, перейменування, видалення та вхід під час запуску</string>
+    <string name="xbox_settings_console_hint">Налаштування мови, регіону та аудіо/відео (для всієї консолі)</string>
+    <string name="profiles">Профілі</string>
+    <string name="profile_create">Створити профіль</string>
+    <string name="profile_rename">Перейменувати</string>
+    <string name="profile_delete">Видалити</string>
+    <string name="profile_delete_confirm">Видалити профіль \"%s\"? Його збереження та дані буде втрачено.</string>
+    <string name="profile_auto_login">Входити під час запуску</string>
+    <string name="profile_none">Немає</string>
+    <string name="profile_empty_list">Немає профілів</string>
+    <string name="profile_invalid_gamertag">Недійсний ґаммертеґ: має починатися з літери та містити лише літери, цифри й поодинокі пробіли (не більше 15 символів)</string>
+    <string name="profile_op_failed">Операція не вдалася</string>
+    <string name="profile_unreadable">(нечитабельний)</string>
+
+    <string name="xcs_cat_user">Користувач</string>
+    <string name="xcs_cat_video">Відео</string>
+    <string name="xcs_cat_audio">Аудіо</string>
+    <string name="xcs_cat_network">Мережа</string>
+    <string name="xcs_language">Мова</string>
+    <string name="xcs_country">Країна</string>
+    <string name="xcs_av_region">Регіон AV</string>
+    <string name="xcs_resolution">Роздільна здатність (HDMI)</string>
+    <string name="xcs_widescreen">Широкоекранний режим</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Низька затримка (не підтримується)</string>
+    <string name="xcs_music_volume">Гучність музики</string>
+    <string name="xcs_mac_address">MAC-адреса</string>
+    <string name="xcs_mac_format">Формат: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>Англійська</item>
+        <item>Японська</item>
+        <item>Німецька</item>
+        <item>Французька</item>
+        <item>Іспанська</item>
+        <item>Італійська</item>
+        <item>Корейська</item>
+        <item>Традиційна китайська</item>
+        <item>Португальська</item>
+        <item>Польська</item>
+        <item>Російська</item>
+        <item>Шведська</item>
+        <item>Турецька</item>
+        <item>Норвезька</item>
+        <item>Нідерландська</item>
+        <item>Спрощена китайська</item>
+    </string-array>
+
     <string name="es_config">Конфігурація</string>
     <string name="es_config_defaults_date">Дата за замовчуванням</string>
     <string name="es_gpu_anisotropic_override">Перевизначення анізотропії</string>

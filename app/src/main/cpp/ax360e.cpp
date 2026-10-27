@@ -13,6 +13,7 @@ int register_Emulator(JNIEnv* env);
 int register_Emulator$Config(JNIEnv* env);
 
 int register_ax360e_Emulator(JNIEnv* env);
+int register_ax360e_profile(JNIEnv* env);
 int cache_ax360e_activity_jni(JNIEnv* env);
 
 JavaVM* g_jvm;
@@ -43,6 +44,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved){
 
     if(register_ax360e_Emulator(env) != JNI_OK){
         LOGE("register_ax360e_Emulator failed");
+        goto bail;
+    }
+
+    if(register_ax360e_profile(env) != JNI_OK){
+        LOGE("register_ax360e_profile failed");
         goto bail;
     }
 

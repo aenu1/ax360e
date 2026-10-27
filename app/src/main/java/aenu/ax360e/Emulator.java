@@ -59,6 +59,20 @@ public class Emulator extends aenu.emulator.Emulator{
     public native GameInfo meta_info_from_zar_game(Context ctx,String uri) throws RuntimeException;
     public native GameInfo meta_info_from_xex_game(Context ctx,String boot_xex_uri) throws RuntimeException;
 
+    /* Xbox 360 用户档案管理 (native 实现, 布局与 xenia ProfileManager 一致) */
+    //返回多行 "XUID16\tGamertag"
+    public native String xe_profile_list(String content_root);
+    public native boolean xe_profile_create(String content_root,String gamertag);
+    public native boolean xe_profile_rename(String content_root,String xuid,String gamertag);
+    public native boolean xe_profile_delete(String content_root,String xuid);
+
+    //与 ProfileManager::IsGamertagValid 相同的规则
+    public static boolean is_valid_gamertag(String gamertag){
+        if(gamertag==null) return false;
+        return gamertag.matches("^[A-Za-z][A-Za-z0-9]*( [A-Za-z0-9]+)*$")
+                &&gamertag.length()>=1&&gamertag.length()<=15;
+    }
+
     public static class GameInfo{
 
         public String uri;

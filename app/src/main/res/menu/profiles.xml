@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_profile_create"
+        android:title="@string/profile_create"/>
+    <item
+        android:id="@+id/menu_profile_auto_login"
+        android:title="@string/profile_auto_login"/>
+</menu>

@@ -1,5 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="console_settings">Configuración de la consola</string>
+    <string name="xbox_settings">Configuración de Xbox</string>
+    <string name="xbox_settings_profiles_hint">Gamertags: crear, renombrar, eliminar e iniciar sesión al arrancar</string>
+    <string name="xbox_settings_console_hint">Configuración de idioma, región y audio/vídeo (toda la consola)</string>
+    <string name="profiles">Perfiles</string>
+    <string name="profile_create">Crear perfil</string>
+    <string name="profile_rename">Renombrar</string>
+    <string name="profile_delete">Eliminar</string>
+    <string name="profile_delete_confirm">¿Eliminar el perfil \"%s\"? Se perderán sus partidas guardadas y datos.</string>
+    <string name="profile_auto_login">Iniciar sesión al arrancar</string>
+    <string name="profile_none">Ninguno</string>
+    <string name="profile_empty_list">Sin perfiles</string>
+    <string name="profile_invalid_gamertag">Gamertag no válido: debe empezar con una letra y contener solo letras, números y espacios simples (máx. 15 caracteres)</string>
+    <string name="profile_op_failed">Operación fallida</string>
+    <string name="profile_unreadable">(ilegible)</string>
+
+    <string name="xcs_cat_user">Usuario</string>
+    <string name="xcs_cat_video">Vídeo</string>
+    <string name="xcs_cat_audio">Audio</string>
+    <string name="xcs_cat_network">Red</string>
+    <string name="xcs_language">Idioma</string>
+    <string name="xcs_country">País</string>
+    <string name="xcs_av_region">Región AV</string>
+    <string name="xcs_resolution">Resolución (HDMI)</string>
+    <string name="xcs_widescreen">Pantalla ancha</string>
+    <string name="xcs_dolby_digital">Dolby Digital</string>
+    <string name="xcs_dolby_pro_logic">Dolby Pro Logic</string>
+    <string name="xcs_analog_mono">Analog Mono</string>
+    <string name="xcs_wma_pro">Dolby Digital WMA PRO</string>
+    <string name="xcs_low_latency">Baja latencia (no compatible)</string>
+    <string name="xcs_music_volume">Volumen de la música</string>
+    <string name="xcs_mac_address">Dirección MAC</string>
+    <string name="xcs_mac_format">Formato: AA:BB:CC:DD:EE:FF</string>
+    <string-array name="xcs_language_entries">
+        <item>Inglés</item>
+        <item>Japonés</item>
+        <item>Alemán</item>
+        <item>Francés</item>
+        <item>Español</item>
+        <item>Italiano</item>
+        <item>Coreano</item>
+        <item>Chino tradicional</item>
+        <item>Portugués</item>
+        <item>Polaco</item>
+        <item>Ruso</item>
+        <item>Sueco</item>
+        <item>Turco</item>
+        <item>Noruego</item>
+        <item>Neerlandés</item>
+        <item>Chino simplificado</item>
+    </string-array>
 
     <string name="es_config">Configuración</string>
     <string name="es_config_defaults_date">Fecha de Valores Predeterminados</string>

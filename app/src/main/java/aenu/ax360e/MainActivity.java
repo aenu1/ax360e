@@ -404,6 +404,10 @@ AppOpenAdManager.getInstance(this).showAdIfAvailable( this);}
             startActivity(new Intent(this,EmulatorSettings.class));
             return true;
         }
+        else if(item_id==R.id.menu_xbox_settings){
+            startActivity(new Intent(this,XboxSettings.class));
+            return true;
+        }
         else if(item_id==R.id.menu_virtual_pad_edit){
             startActivity(new Intent(this,VirtualControlEdit.class));
             return true;

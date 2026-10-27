@@ -10,6 +10,9 @@
         android:id="@+id/menu_settings"
         android:title="@string/settings"/>
     <item
+        android:id="@+id/menu_xbox_settings"
+        android:title="@string/xbox_settings"/>
+    <item
         android:id="@+id/menu_key_mappers"
         android:title="@string/key_mappers"/>
 
