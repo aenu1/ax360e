@@ -317,17 +317,12 @@ public class EmulatorActivity extends Activity implements SurfaceHolder.Callback
         sync_pause();
 
         AlertDialog.Builder ab=new AlertDialog.Builder(this);
-        ab.setItems(new CharSequence[]{"继续游戏",getString(R.string.quit)}, new DialogInterface.OnClickListener(){
+        ab.setItems(new CharSequence[]{getString(R.string.quit)}, new DialogInterface.OnClickListener(){
             @Override
             public void onClick(DialogInterface p1, int which)
             {
-                if(which==1){
-                    quitting=true;
-                    finish();
-                }
-                else{
-                    close_menu();
-                }
+                quitting=true;
+                finish();
             }
         });
         AlertDialog d=ab.create();

@@ -73,6 +73,9 @@ public class AboutActivity extends AppCompatActivity {
                 + " *同步xenia canary的更新\n"
                 + " *覆盖层（imgui）显示时，劫持输入\n"
                 + " *部分修正与优化\n"
+                +"1.20(2026-10-27)\n"
+                + " *同步xenia canary的更新\n"
+                + " *部分修正与优化\n"
                 + " \n";
 
         return log;
