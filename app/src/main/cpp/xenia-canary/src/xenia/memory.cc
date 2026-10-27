@@ -1849,7 +1849,11 @@ bool PhysicalHeap::Alloc(uint32_t size, uint32_t alignment,
   // Given the address we've reserved in the parent heap, pin that here.
   // Shouldn't be possible for it to be allocated already.
   const uint32_t address = heap_base_ + parent_address - parent_heap_start;
-  if ((address + host_address_offset_) % alignment != 0) {
+  // 对齐校验以 guest 物理地址为准：0xE0000000 段的物理基址带 0x1000 偏移。
+  // Windows 下分配粒度为 64K，host_address_offset_ 恰好也是 0x1000，两种角色
+  // 重合；Android 分配粒度为 4K，host_address_offset_ 为 0，不能再用它补偿
+  // 物理基址偏移，否则对齐 > 4K 的物理内存分配必然失败（如失落的星球2）。
+  if ((address - heap_base_ + parent_heap_start) % alignment != 0) {
     XELOGE(
         "PhysicalHeap::Alloc translated address {:08X} misaligned "
         "(alignment {:08X}, physical base offset {:08X})",
@@ -1894,7 +1898,9 @@ bool PhysicalHeap::AllocFixed(uint32_t base_address, uint32_t size,
   // Shouldn't be possible for it to be allocated already.
   const uint32_t address =
       heap_base_ + parent_base_address - GetPhysicalAddress(heap_base_);
-  if ((address + host_address_offset_) % alignment != 0) {
+  // 对齐校验以 guest 物理地址为准（同 Alloc，见其注释）。
+  if ((address - heap_base_ + GetPhysicalAddress(heap_base_)) % alignment !=
+      0) {
     XELOGE(
         "PhysicalHeap::AllocFixed translated address {:08X} misaligned "
         "(alignment {:08X}, physical base offset {:08X})",
@@ -1946,7 +1952,9 @@ bool PhysicalHeap::AllocRange(uint32_t low_address, uint32_t high_address,
   // Shouldn't be possible for it to be allocated already.
   const uint32_t address =
       heap_base_ + parent_address - GetPhysicalAddress(heap_base_);
-  if ((address + host_address_offset_) % alignment != 0) {
+  // 对齐校验以 guest 物理地址为准（同 Alloc，见其注释）。
+  if ((address - heap_base_ + GetPhysicalAddress(heap_base_)) % alignment !=
+      0) {
     XELOGE(
         "PhysicalHeap::AllocRange translated address {:08X} misaligned "
         "(alignment {:08X}, physical base offset {:08X})",
