@@ -45,8 +45,11 @@ namespace xe {
             AudioDriver* AAudioAudioSystem::CreateDriver(xe::threading::Semaphore* semaphore,
                                       uint32_t frequency, uint32_t channels,
                                       bool need_format_conversion){
-                //FIXME
-                return new AAudioAudioDriver(memory_, semaphore);
+                // 媒体播放器按歌曲参数建流：按歌曲自身采样率的交织主机端序
+                // 立体声。忽略这些参数而按 5.1 字节交换处理，会把音频放成
+                // 满刻度噪声混在游戏音频上。
+                return new AAudioAudioDriver(memory_, semaphore, frequency,
+                                             channels, need_format_conversion);
             }
         }
     }
